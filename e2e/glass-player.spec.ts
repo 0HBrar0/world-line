@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { setTier } from './helpers';
+import { force3d, setTier } from './helpers';
 
 test('the overview box moves while the map is still being dragged', async ({ page }, info) => {
   test.skip(info.project.name === 'mobile', 'the map canvas is desktop only');
@@ -36,13 +36,14 @@ test('the glass arrows and play step along the map', async ({ page }, info) => {
 for (const view of ['Observer', 'Flight', 'Chart']) {
   test(`the glass arrows work in ${view}`, async ({ page }, info) => {
     test.skip(view === 'Chart' && info.project.name === 'mobile', 'the chart is desktop only');
+    test.skip(!!process.env.CI, 'needs local 3D');
+    await force3d(page);
     await setTier(page, 'extras');
     await page.goto('/#/follow/1');
     await page.getByRole('button', { name: view, exact: true }).click();
     await page.getByRole('button', { name: 'Next step' }).click();
     await expect(page).toHaveURL(/follow\/2/);
-    // Software rendering on CI can starve the wait for a still button, so click straight away.
-    await page.getByRole('button', { name: 'Previous step' }).click({ force: true });
+    await page.getByRole('button', { name: 'Previous step' }).click();
     await expect(page).toHaveURL(/follow\/1/);
   });
 }

@@ -1,7 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { setTier } from './helpers';
+import { force3d, setTier } from './helpers';
+
+const local = () => test.skip(!!process.env.CI, 'needs local 3D');
 
 test('follow opens in the observer view and can switch to the flight', async ({ page }) => {
+  local();
+  await force3d(page);
   await setTier(page, 'extras');
   await page.goto('/#/follow/1');
   await expect(page.locator('.entity-eyes')).toBeAttached();
@@ -12,6 +16,8 @@ test('follow opens in the observer view and can switch to the flight', async ({ 
 
 test('wide screens can switch to the chart', async ({ page }, info) => {
   test.skip(info.project.name === 'mobile', 'the chart is desktop only');
+  local();
+  await force3d(page);
   await setTier(page, 'extras');
   await page.goto('/#/follow/1');
   await page.getByRole('button', { name: 'Chart' }).click();
@@ -19,7 +25,15 @@ test('wide screens can switch to the chart', async ({ page }, info) => {
   await expect(page.locator('[data-node]').first()).toBeVisible();
 });
 
+test('software graphics get the chart, not the flight', async ({ page }) => {
+  await setTier(page, 'extras');
+  await page.goto('/#/follow/1');
+  await expect(page.getByTestId('narration')).toBeVisible();
+  await expect(page.locator('.space-canvas')).toHaveCount(0);
+});
+
 test('reduced motion gets the chart, not the flight', async ({ page }) => {
+  await force3d(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await setTier(page, 'extras');
   await page.goto('/#/follow/1');

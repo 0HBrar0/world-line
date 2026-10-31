@@ -1,5 +1,10 @@
 import type { Page } from '@playwright/test';
 
+/** Turns the 3D views on despite software rendering. Too slow to run on CI, so those tests stay local. */
+export async function force3d(page: Page) {
+  await page.addInitScript(() => localStorage.setItem('wl.force3d', '1'));
+}
+
 export type Tier = 'premise' | 'sg_part1' | 'sg_part2' | 'sg_ending' | 'sg0' | 'extras';
 
 /** Starts the app at a spoiler level by seeding the stored setting before load. */

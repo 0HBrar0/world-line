@@ -33,9 +33,14 @@ export function spaceStops(steps: StoryEvent[], tier: Tier): SpaceStop[] {
   });
 }
 
+/** True only with a real graphics chip: on software rendering the 3D views would freeze the page. */
 export function supportsWebGL(): boolean {
   try {
-    return !!document.createElement('canvas').getContext('webgl2');
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (!gl) return false;
+    if (localStorage.getItem('wl.force3d')) return true;
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    return !(info && /swiftshader|llvmpipe|software|basic render/i.test(String(gl.getParameter(info.UNMASKED_RENDERER_WEBGL))));
   } catch {
     return false;
   }
