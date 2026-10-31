@@ -75,13 +75,8 @@ function parseSignal(raw: Buffer): Signal | 'honeypot' | null {
   return trap ? 'honeypot' : signal;
 }
 
-function notificationText({ message, contactMethod, contact }: Signal) {
-  if (!message && !contact) return 'NEW TRANSMISSION\n\nType: Anonymous Ping\nMessage: No message provided.\nContact: Not provided';
-  const lines = ['NEW TRANSMISSION', '', 'Type: Message', 'Message:', message || 'No message provided.', ''];
-  if (contactMethod === 'none') lines.push('Contact: Not provided');
-  else lines.push(`Contact method: ${contactMethod === 'email' ? 'Email' : 'Other'}`, `Contact: ${contact}`);
-  return lines.join('\n');
-}
+/** Only what the visitor wrote. ntfy needs some text, so a blank ping just says so. */
+const notificationText = ({ message, contact }: Signal) => [message, contact].filter(Boolean).join('\n\n') || 'Ping';
 
 export function createUplink(config: UplinkConfig) {
   const limits = createLimits();
@@ -110,7 +105,7 @@ export function createUplink(config: UplinkConfig) {
   }
 
   async function notify(signal: Signal): Promise<{ status: number; error?: string }> {
-    const headers: Record<string, string> = { Title: 'WORLD LINE | CREATOR UPLINK', 'Content-Type': 'text/plain; charset=utf-8' };
+    const headers: Record<string, string> = { Title: 'World Line', 'Content-Type': 'text/plain; charset=utf-8' };
     if (config.ntfyToken) headers.Authorization = `Bearer ${config.ntfyToken}`;
     try {
       const answer = await post(`${config.ntfyBaseUrl!.replace(/\/+$/, '')}/${encodeURIComponent(config.ntfyTopic!)}`, {

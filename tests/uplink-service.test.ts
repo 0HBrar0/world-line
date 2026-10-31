@@ -41,14 +41,22 @@ describe('POST /api/uplink', () => {
     expect(res.headers.get('access-control-allow-origin')).toBe(ORIGIN);
     const [url, init] = ntfy.mock.calls[0];
     expect(url).toBe('https://ntfy.test/private%20topic');
-    expect(init?.body).toBe('NEW TRANSMISSION\n\nType: Anonymous Ping\nMessage: No message provided.\nContact: Not provided');
+    expect(init?.body).toBe('Ping');
     expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer tok');
-    expect((init?.headers as Record<string, string>).Title).toBe('WORLD LINE | CREATOR UPLINK');
+    expect((init?.headers as Record<string, string>).Title).toBe('World Line');
   });
 
   it('passes the message and contact on as plain text', async () => {
     await post({ message: '  <b>hi</b> **there**  ', contactMethod: 'email', contact: 'visitor@example.com', website: '' });
-    expect(ntfy.mock.calls[0][1]?.body).toBe('NEW TRANSMISSION\n\nType: Message\nMessage:\n<b>hi</b> **there**\n\nContact method: Email\nContact: visitor@example.com');
+    expect(ntfy.mock.calls[0][1]?.body).toBe('<b>hi</b> **there**\n\nvisitor@example.com');
+  });
+
+  it('sends only the message, or only the contact, when that is all there is', async () => {
+    await post({ ...ping, message: 'just words' });
+    expect(ntfy.mock.calls[0][1]?.body).toBe('just words');
+    clock += 60_000;
+    await post({ ...ping, contactMethod: 'other', contact: 'Instagram: example_user' });
+    expect(ntfy.mock.calls[1][1]?.body).toBe('Instagram: example_user');
   });
 
   it.each([

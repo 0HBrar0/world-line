@@ -1,5 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
+import { force3d } from './helpers';
 
 const ok = { status: 200, contentType: 'application/json', body: '{"success":true,"message":"SIGNAL TRANSMITTED"}' };
 
@@ -118,6 +119,20 @@ test('fits the screen and passes accessibility checks', async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   const { violations } = await new AxeBuilder({ page }).include('.uplink').analyze();
   expect(violations).toEqual([]);
+});
+
+test('the content policy blocks nothing the site uses', async ({ page }) => {
+  await force3d(page);
+  const blocked: string[] = [];
+  page.on('console', (message) => {
+    if (message.text().includes('Content Security Policy')) blocked.push(message.text());
+  });
+  for (const route of ['#/', '#/map', '#/follow', '#/characters', '#/mechanics']) {
+    await page.goto(route);
+    await page.waitForTimeout(800);
+  }
+  expect(await page.locator('meta[http-equiv="Content-Security-Policy"]').count()).toBe(1);
+  expect(blocked).toEqual([]);
 });
 
 test('reduced motion stills the signal ring', async ({ page }) => {
