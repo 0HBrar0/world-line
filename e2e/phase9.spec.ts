@@ -71,6 +71,7 @@ test('the tier confirmation traps focus and Escape cancels it', async ({ page })
 
 test('skip link moves focus without changing the route', async ({ page }) => {
   await page.goto('/#/glossary');
+  await expect(page.getByRole('heading', { name: 'Glossary', level: 1 })).toBeVisible();
   await page.keyboard.press('Tab');
   await page.keyboard.press('Enter');
   await expect(page.locator('#main')).toBeFocused();
