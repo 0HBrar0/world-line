@@ -24,14 +24,18 @@ test.describe('at sg0', () => {
 
   test('the fork, tiles, tree and lists come from canon', async ({ page }) => {
     await expect(page.getByText(canon.sg0Branch.description.slice(0, 60))).toBeVisible();
+    await page.getByRole('tab', { name: 'Endings' }).click();
     for (const ending of canon.sg0Branch.endings) await expect(page.locator('.ending-tile').filter({ has: page.getByRole('heading', { name: ending.name }) })).toBeVisible();
     await expect(page.locator('.ending-tile').filter({ has: page.getByRole('heading', { name: 'Milky-way Crossing' }) })).toContainText('No value listed');
     await expect(page.getByRole('heading', { name: 'VN choice tree (simplified)' })).toBeVisible();
+    await page.getByRole('tab', { name: 'Lines' }).click();
     await expect(page.getByText('Route links not mapped').first()).toBeVisible();
+    await page.getByRole('tab', { name: 'Anime and VN' }).click();
     for (const item of canon.sg0Branch.animeVsVn.slice(0, 3)) await expect(page.getByText(item.text)).toBeVisible();
   });
 
   test('every VN ending sits on the tree with its route text verbatim', async ({ page }) => {
+    await page.getByRole('tab', { name: 'Endings' }).click();
     const tree = page.locator('.choice-leaf');
     for (const e of canon.sg0Branch.endings) await expect(tree.filter({ has: page.getByText(`${e.name}:`, { exact: true }) })).toContainText(e.howToReach);
   });

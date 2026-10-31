@@ -15,7 +15,7 @@ export function tubesFor(value: string | null): string[] {
 
 interface NixieProps {
   value: string | null;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
   /** Spoken text for assistive tech; the tubes themselves are decorative. */
   label?: string;
 }

@@ -155,7 +155,7 @@ for (const [name, url] of ROUTES) {
   test(`final screenshot: ${name}`, async ({ page }, info) => {
     await setTier(page, FINAL_TIER[name] ?? (name === 'map' || name === 'follow' ? 'extras' : 'premise'));
     await page.goto(url);
-    await page.waitForTimeout(1200);
+    await page.waitForTimeout(name === 'home' ? 3000 : 1200);
     await page.screenshot({ path: shot('final', name, info.project.name), fullPage: name !== 'map' && name !== 'follow' });
   });
 }

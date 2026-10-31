@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { motion, type TargetAndTransition, type Transition } from 'framer-motion';
 import { Nixie } from '../../components/Nixie';
 
@@ -22,6 +22,44 @@ export function moving(reduce: boolean, animate: TargetAndTransition, transition
 
 export const LOOP = (duration: number): Transition => ({ duration, repeat: Infinity, ease: 'linear' });
 
+const STAGE = { width: 640, height: 340, margin: 24, maxZoom: 1.45, minZoom: 0.85 };
+
+/** Centres a frame and zooms it to fill the stage, so small scenes do not float in empty space. */
+export function FitScene({ children }: { children: ReactNode }) {
+  const ref = useRef<SVGGElement>(null);
+  const [fit, setFit] = useState('');
+  useLayoutEffect(() => {
+    const box = ref.current?.getBBox();
+    if (!box?.width || !box.height) return;
+    const room = Math.min((STAGE.width - STAGE.margin * 2) / box.width, (STAGE.height - STAGE.margin * 2) / box.height);
+    const zoom = Math.min(STAGE.maxZoom, Math.max(STAGE.minZoom, room));
+    const x = STAGE.width / 2 - zoom * (box.x + box.width / 2);
+    const y = STAGE.height / 2 - zoom * (box.y + box.height / 2);
+    setFit(`translate(${x} ${y}) scale(${zoom})`);
+  }, []);
+  return (
+    <g filter="url(#stage-glow)">
+      <g ref={ref} transform={fit}>
+        {children}
+      </g>
+    </g>
+  );
+}
+
+export function StageDefs() {
+  return (
+    <defs>
+      <filter id="stage-glow" x="-10%" y="-10%" width="120%" height="120%">
+        <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+        <feMerge>
+          <feMergeNode in="blur" />
+          <feMergeNode in="SourceGraphic" />
+        </feMerge>
+      </filter>
+    </defs>
+  );
+}
+
 export function Label({ x, y, children, anchor = 'middle', color = INK, size = 15 }: { x: number; y: number; children: ReactNode; anchor?: 'start' | 'middle' | 'end'; color?: string; size?: number }) {
   return (
     <text x={x} y={y} textAnchor={anchor} fill={color} fontSize={size} fontFamily="var(--font-body)">
@@ -42,10 +80,11 @@ export function Microwave({ x, y, timer }: { x: number; y: number; timer?: strin
   return (
     <g transform={`translate(${x} ${y})`}>
       <rect width="140" height="88" rx="6" fill="#1a2027" stroke={INK} strokeWidth="2" />
-      <rect x="10" y="10" width="88" height="68" rx="3" fill="#0b0d10" stroke={INK} />
-      <rect x="106" y="12" width="26" height="14" fill="#0b0d10" stroke={NIXIE} />
+      <rect x="8" y="10" width="84" height="68" rx="3" fill="#0b0d10" stroke={INK} />
+      <path d="M 18 66 L 44 20 M 34 66 L 60 20" stroke={INK} strokeWidth="1.5" opacity="0.25" />
+      <rect x="98" y="11" width="36" height="16" rx="2" fill="#0b0d10" stroke={NIXIE} />
       {timer && (
-        <text x="119" y="23" textAnchor="middle" fill={NIXIE} fontSize="10" fontFamily="var(--font-mono)">
+        <text x="116" y="22.5" textAnchor="middle" fill={NIXIE} fontSize="9" fontFamily="var(--font-mono)">
           {timer}
         </text>
       )}
@@ -61,7 +100,7 @@ export function Phone({ x, y, lit, reduce }: { x: number; y: number; lit?: boole
     <g transform={`translate(${x} ${y})`}>
       <motion.g {...moving(reduce || !lit, { rotate: [0, -4, 4, 0] }, { duration: 0.5, repeat: Infinity, repeatDelay: 1 })}>
       <rect width="42" height="72" rx="6" fill="#1a2027" stroke={lit ? NIXIE : INK} strokeWidth="2" />
-      <rect x="6" y="8" width="30" height="42" fill="#0b0d10" />
+      <rect x="6" y="8" width="30" height="42" fill={lit ? '#3a2a18' : '#0b0d10'} />
       <circle cx="21" cy="60" r="5" fill="none" stroke={INK} />
       </motion.g>
     </g>

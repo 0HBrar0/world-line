@@ -65,6 +65,7 @@ const Node = memo(function Node({ node, tier, label, selected, focusable, dimmed
       onPointerLeave={() => onHover(null, 0, 0)}
     >
       <circle className="node-hit" r="13" />
+      <circle className={`node-halo halo-${confidence.toLowerCase()}`} r="11" />
       {confidence === 'INTERPRETATION' && <circle r="9" className="node-ring node-ring-interp" />}
       <circle
         r="6"
@@ -177,6 +178,47 @@ export function MapCanvas({
     return () => el.removeEventListener('wheel', onWheel);
   }, [interactive, onZoomWheel]);
 
+  const modelRef = useRef(model);
+  modelRef.current = model;
+
+  // Hover focus toggles classes directly, so moving the pointer never re-renders the map.
+  const applyFocus = useCallback((nodeId: string | null, edge: MapEdge | null) => {
+    const el = svg.current;
+    if (!el) return;
+    el.querySelectorAll('.is-related').forEach((item) => item.classList.remove('is-related'));
+    el.classList.toggle('has-focus', !!(nodeId || edge));
+    if (!nodeId && !edge) return;
+    const m = modelRef.current;
+    const origin = m.nodes.find((n) => n.id === (nodeId ?? edge?.fromNode));
+    const rows = new Set<number>();
+    if (origin) rows.add(origin.y);
+    if (edge) rows.add(edge.to.y);
+    const yOfNode = new Map(m.nodes.map((n) => [n.id, n.y]));
+    const edges = new Map(m.edges.map((e) => [e.id, e]));
+    el.querySelectorAll<SVGElement>('[data-node], [data-row-y], [data-edge]').forEach((item) => {
+      const { node, rowY, edge: edgeId } = item.dataset;
+      const other = edgeId ? edges.get(edgeId) : undefined;
+      const related = other
+        ? edge
+          ? other.id === edge.id
+          : rows.has(other.from.y) || rows.has(other.to.y)
+        : rows.has(node ? (yOfNode.get(node) ?? NaN) : Number(rowY));
+      if (related) item.classList.add('is-related');
+    });
+  }, []);
+
+  const hoverNode = useCallback(
+    (id: string | null, x: number, y: number) => {
+      onHoverNode(id, x, y);
+      if (interactive && !drag.current) applyFocus(id, null);
+    },
+    [applyFocus, interactive, onHoverNode],
+  );
+  const hoverEdge = (edge: MapEdge | null, x: number, y: number) => {
+    onHoverEdge(edge, x, y);
+    if (interactive && !drag.current) applyFocus(null, edge);
+  };
+
   const dimmedNode = (id: string) => !!spotlightId && spotlightId !== id;
   const gutter = model.gutter;
 
@@ -233,6 +275,7 @@ export function MapCanvas({
           {model.tracks.map((t) => (
             <motion.line
               key={t.lineId}
+              data-row-y={t.y}
               className={t.unclear ? 'track track-unclear' : `track${t.lineId === 'wl-sg-1048596' ? ' track-gold' : ''}`}
               initial={false}
               animate={{ x1: t.x1, x2: t.x2, y1: t.y, y2: t.y, opacity: spotlightId ? 0.4 : 1 }}
@@ -279,10 +322,11 @@ export function MapCanvas({
                 aria-label={label}
                 opacity={active ? 1 : 0.25}
                 onClick={() => onActivateEdge(e)}
-                onPointerEnter={(p) => onHoverEdge(e, p.clientX, p.clientY)}
-                onPointerLeave={() => onHoverEdge(null, 0, 0)}
+                onPointerEnter={(p) => hoverEdge(e, p.clientX, p.clientY)}
+                onPointerLeave={() => hoverEdge(null, 0, 0)}
               >
                 <motion.path className="edge-hit" initial={false} animate={{ d: path }} transition={{ duration: moveDuration, ease: EASE }} />
+                <motion.path className="edge-halo" stroke={style.color} strokeWidth={width + 7} initial={false} animate={{ d: path }} transition={{ duration: moveDuration, ease: EASE }} />
                 {style.double && !e.collapsed && (
                   <motion.path
                     className="edge-line"
@@ -341,7 +385,7 @@ export function MapCanvas({
                 duration={moveDuration}
                 onActivate={onActivateNode}
                 onFocusNode={onFocusNode}
-                onHover={onHoverNode}
+                onHover={hoverNode}
               />
             );
           })}
@@ -368,7 +412,7 @@ export function MapCanvas({
         }
         const usePremise = !!line.premiseLabel && tier === 'premise';
         return (
-          <g key={r.key}>
+          <g key={r.key} data-row-y={r.y}>
             {usePremise && (
               <text className="row-label row-label-note" x={gutter - 8} y={r.y - 8} textAnchor="end">
                 {line.premiseLabel}

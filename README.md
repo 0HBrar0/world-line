@@ -75,6 +75,9 @@ npx tsx scripts/report-tier-leaks.ts                      # lists strings the ti
 
 **Spec differences and known limitations:**
 - The spoiler control is a dropdown, not a segmented control: six long labels do not fit in the top bar.
+- Media chips, the confidence legend and Reduce motion sit in a Filters popover at every width, not only below 1280 px.
+- The S;G 0 page is split into four tabs rather than one long scroll.
+- Hovering the map fades everything except the hovered world line and its edges.
 - Map zoom uses the wheel, keyboard and on-screen buttons. Pinch zoom is not implemented.
 - Map row heights are ordered, not to scale, because lines that differ only in the last digits would overlap. The S;G 0 lane sits above the Beta band instead of inside it.
 - Edges are reached with the E key from a node, or by mouse. They are not Tab stops.

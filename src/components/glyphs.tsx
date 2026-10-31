@@ -25,13 +25,20 @@ const MONOGRAMS: Record<string, { mono: string; color: string }> = {
   'kaede-kurushima': { mono: 'KK', color: '#e0c3fc' },
 };
 
+const glyphFor = (id: string) => MONOGRAMS[id] ?? { mono: '??', color: '#a9b4bf' };
+
+export const glyphColor = (id: string) => glyphFor(id).color;
+
 export function CharacterGlyph({ id, size = 30 }: { id: string; size?: number }) {
-  const glyph = MONOGRAMS[id] ?? { mono: '??', color: '#a9b4bf' };
+  const glyph = glyphFor(id);
   const name = characterById(id)?.name ?? '';
+  // Large glyphs get an outer dial; at small sizes it would only blur the ring.
+  const large = size >= 48;
   return (
     <svg className="glyph" width={size} height={size} viewBox="0 0 32 32" role="img" aria-label={name}>
-      <circle cx="16" cy="16" r="14" fill="#12161b" stroke={glyph.color} strokeWidth="2.5" />
-      <text x="16" y="20.5" textAnchor="middle" fontSize="12" fontWeight="700" fontFamily="var(--font-mono)" fill={glyph.color}>
+      {large && <circle cx="16" cy="16" r="15.2" fill="none" stroke={glyph.color} strokeWidth="0.9" strokeDasharray="0.8 1.6" opacity="0.8" />}
+      <circle cx="16" cy="16" r={large ? 12.5 : 14} fill="#12161b" stroke={glyph.color} strokeWidth={large ? 1.5 : 2.5} />
+      <text x="16" y={large ? 19.8 : 20.5} textAnchor="middle" fontSize={large ? 10.5 : 12} fontWeight="700" fontFamily="var(--font-mono)" fill={glyph.color}>
         {glyph.mono}
       </text>
     </svg>

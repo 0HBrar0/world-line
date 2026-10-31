@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { href, useRoute } from '../app/router';
 import { MEDIA_KEYS, tierIndex, useSettings, type MediaKey, type TierId } from '../app/settings';
 import canonMeta from '../data/meta';
@@ -98,8 +98,22 @@ export function TopBar({ readout }: { readout: string | null }) {
   const route = useRoute();
   const { legendOpen, setLegendOpen, motionPref, setMotionPref } = useSettings();
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const controls = useRef<HTMLDivElement>(null);
   const active = route.path[0] ?? '';
   const reduceOn = motionPref === 'reduce';
+
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const close = (e: Event) => {
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !controls.current?.contains(e.target as Node)) setFiltersOpen(false);
+    };
+    document.addEventListener('pointerdown', close);
+    document.addEventListener('keydown', close);
+    return () => {
+      document.removeEventListener('pointerdown', close);
+      document.removeEventListener('keydown', close);
+    };
+  }, [filtersOpen]);
 
   return (
     <header className="topbar">
@@ -116,7 +130,7 @@ export function TopBar({ readout }: { readout: string | null }) {
           ))}
         </nav>
       </div>
-      <div className="topbar-row topbar-controls">
+      <div ref={controls} className="topbar-row topbar-controls">
         <TierControl />
         <button type="button" className="btn filters-toggle" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((open) => !open)}>
           Filters

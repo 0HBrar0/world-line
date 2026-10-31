@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type KeyboardEvent } from 'react';
 import { motion } from 'framer-motion';
 import { href } from '../../app/router';
 import { useReduceMotion, useSettings } from '../../app/settings';
@@ -69,7 +69,7 @@ function LoopBack({ tier }: { tier: Tier }) {
           <circle cx="110" cy="180" r="9" fill="var(--bg-0)" stroke="var(--edge-reconnect)" strokeWidth="3" />
           <circle cx="420" cy="180" r="9" fill="var(--bg-0)" stroke="var(--edge-reconnect)" strokeWidth="3" />
           <circle cx="640" cy="180" r="11" fill="var(--band-sg-stroke)" />
-          <text x="720" y="30" textAnchor="end" className="diagram-text">
+          <text x="720" y="94" textAnchor="end" className="diagram-text">
             {steps[0]}
           </text>
           <text x="40" y="208" className="diagram-text">
@@ -195,8 +195,38 @@ function FloatingLines({ tier }: { tier: Tier }) {
   );
 }
 
+const SECTIONS = [
+  { id: 'fork', label: 'The fork' },
+  { id: 'lines', label: 'Lines' },
+  { id: 'endings', label: 'Endings' },
+  { id: 'versions', label: 'Anime and VN' },
+] as const;
+
+type SectionId = (typeof SECTIONS)[number]['id'];
+
+function SectionTabs({ active, onChange }: { active: SectionId; onChange: (id: SectionId) => void }) {
+  const onKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+    const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+    if (!step) return;
+    e.preventDefault();
+    const next = SECTIONS[(SECTIONS.findIndex((s) => s.id === active) + step + SECTIONS.length) % SECTIONS.length];
+    onChange(next.id);
+    document.getElementById(`tab-${next.id}`)?.focus();
+  };
+  return (
+    <div className="section-tabs" role="tablist" aria-label="Steins;Gate 0 sections">
+      {SECTIONS.map((s) => (
+        <button key={s.id} id={`tab-${s.id}`} type="button" role="tab" aria-selected={active === s.id} aria-controls="sg0-panel" tabIndex={active === s.id ? 0 : -1} onClick={() => onChange(s.id)} onKeyDown={onKeyDown}>
+          {s.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function Sg0Page() {
   const { tier, media } = useSettings();
+  const [section, setSection] = useState<SectionId>('fork');
   if (!atLeast(tier, branch.spoilerTier)) {
     return (
       <main id="main" className="page">
@@ -211,50 +241,65 @@ export function Sg0Page() {
   return (
     <main id="main" className="page sg0">
       <h1>Steins;Gate 0</h1>
-      <section aria-labelledby="fork-title">
-        <h2 id="fork-title">The fork</h2>
-        <p>{description}</p>
-        <p className="row">
-          <Badge target={branchTarget('The fork')} />
-        </p>
-        <ForkDiagram tier={tier} />
-      </section>
-      <LoopBack tier={tier} />
-      <FloatingLines tier={tier} />
-      <section>
-        <h2>Endings</h2>
-        <ul className="tile-grid ending-grid">
-          {endings.map((e) => (
-            <EndingTile key={e.id} ending={e} tier={tier} />
-          ))}
-        </ul>
-      </section>
-      <section>
-        <h2>VN choice tree (simplified)</h2>
-        <p className="detail-meta">The grouping is simplified for reading; each ending's route text is quoted from the data as it stands.</p>
-        <TreeList node={root} />
-        {other.map((leaf) => (
-          <p key={leaf.id} className="choice-leaf">
-            <strong>{leaf.name}:</strong> {leaf.howToReach}
-          </p>
-        ))}
-      </section>
-      <section>
-        <h2>Anime and VN differences</h2>
-        <ul className="fact-list">
-          {branch.animeVsVn.map((item, i) => (
-            <li key={i}>
-              {item.text} <Badge compact target={{ id: 'sg0Branch', title: item.text, ...item }} />
-            </li>
-          ))}
-        </ul>
-      </section>
-      <section>
-        <h2>What to call it</h2>
-        <p>
-          {branch.classification.text} <Badge compact target={{ id: 'sg0Branch', title: 'Classification', ...branch.classification }} />
-        </p>
-      </section>
+      <SectionTabs active={section} onChange={setSection} />
+      <div id="sg0-panel" role="tabpanel" aria-labelledby={`tab-${section}`}>
+        {section === 'fork' && (
+          <>
+            <section aria-labelledby="fork-title">
+              <h2 id="fork-title">The fork</h2>
+              <p>{description}</p>
+              <p className="row">
+                <Badge target={branchTarget('The fork')} />
+              </p>
+              <ForkDiagram tier={tier} />
+            </section>
+            <LoopBack tier={tier} />
+          </>
+        )}
+        {section === 'lines' && <FloatingLines tier={tier} />}
+        {section === 'endings' && (
+          <>
+            <section>
+              <h2>Endings</h2>
+              <ul className="tile-grid ending-grid">
+                {endings.map((e) => (
+                  <EndingTile key={e.id} ending={e} tier={tier} />
+                ))}
+              </ul>
+            </section>
+            <section>
+              <h2>VN choice tree (simplified)</h2>
+              <p className="detail-meta">The grouping is simplified for reading; each ending's route text is quoted from the data as it stands.</p>
+              <TreeList node={root} />
+              {other.map((leaf) => (
+                <p key={leaf.id} className="choice-leaf">
+                  <strong>{leaf.name}:</strong> {leaf.howToReach}
+                </p>
+              ))}
+            </section>
+          </>
+        )}
+        {section === 'versions' && (
+          <>
+            <section>
+              <h2>Anime and VN differences</h2>
+              <ul className="fact-list">
+                {branch.animeVsVn.map((item, i) => (
+                  <li key={i}>
+                    {item.text} <Badge compact target={{ id: 'sg0Branch', title: item.text, ...item }} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+            <section>
+              <h2>What to call it</h2>
+              <p>
+                {branch.classification.text} <Badge compact target={{ id: 'sg0Branch', title: 'Classification', ...branch.classification }} />
+              </p>
+            </section>
+          </>
+        )}
+      </div>
     </main>
   );
 }

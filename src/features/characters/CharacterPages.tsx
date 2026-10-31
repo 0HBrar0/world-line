@@ -1,8 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, type CSSProperties } from 'react';
 import { href, navigate } from '../../app/router';
 import { useSettings } from '../../app/settings';
 import { Badge } from '../../components/Badge';
-import { CharacterGlyph } from '../../components/glyphs';
+import { CharacterGlyph, glyphColor } from '../../components/glyphs';
 import { useToast } from '../../components/toast';
 import { canon } from '../../data/load';
 import type { Character, Tier } from '../../data/schema';
@@ -30,8 +30,8 @@ export function CharactersIndex() {
       <ul className="tile-grid">
         {shown.map((c) => (
           <li key={c.id}>
-            <a className="tile character-tile" href={href(`characters/${c.id}`)}>
-              <CharacterGlyph id={c.id} size={44} />
+            <a className="tile character-tile" style={{ '--c': glyphColor(c.id) } as CSSProperties} href={href(`characters/${c.id}`)}>
+              <CharacterGlyph id={c.id} size={72} />
               <span>
                 <h2>{c.name}</h2>
                 <p>{safeText(c.role, tier)}</p>
@@ -80,8 +80,8 @@ export function CharacterPage({ id }: { id: string }) {
       <p>
         <a href={href('characters')}>All characters</a>
       </p>
-      <div className="character-head">
-        <CharacterGlyph id={c.id} size={64} />
+      <div className="character-head" style={{ '--c': glyphColor(c.id) } as CSSProperties}>
+        <CharacterGlyph id={c.id} size={96} />
         <div>
           <h1>{c.name}</h1>
           <p className="detail-meta">

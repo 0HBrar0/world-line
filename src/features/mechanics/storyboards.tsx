@@ -18,7 +18,7 @@ const dmail: Array<(p: SceneProps) => ReactNode> = [
   ({ reduce }) => (
     <>
       <Phone x={120} y={120} lit reduce={reduce} />
-      <path d="M 170 156 H 260" stroke={INK} strokeWidth="2" strokeDasharray="6 5" />
+      <motion.path d="M 170 156 H 260" stroke={NIXIE} strokeWidth="2" strokeDasharray="6 5" {...moving(reduce, { strokeDashoffset: -33 }, LOOP(1))} />
       <Microwave x={270} y={110} timer="00:00" />
       <g transform="translate(450 120)">
         {['#', '0', '1', '2'].map((d, i) => (

@@ -6,6 +6,7 @@ import type { SourceTarget } from '../../components/drawer';
 import type { Confidence, Mechanic, Tier } from '../../data/schema';
 import { effectiveTier, tierRank } from '../../data/selectors';
 import { isTextSafe, safeText } from '../../data/tierGuard';
+import { FitScene, StageDefs } from './scene';
 import { STORYBOARDS } from './storyboards';
 
 const DWELL_MS = 6000;
@@ -88,9 +89,12 @@ export function MechanicPlayer({ mechanic, compact = false }: PlayerProps) {
         <div className="stage" aria-hidden="true">
           {open && Frame ? (
             <svg viewBox="0 0 640 340" preserveAspectRatio="xMidYMid meet">
+              <StageDefs />
               <AnimatePresence mode="wait">
                 <motion.g key={index} initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduce ? undefined : { opacity: 0 }} transition={{ duration: reduce ? 0 : 0.18 }}>
-                  <Frame reduce={reduce} />
+                  <FitScene>
+                    <Frame reduce={reduce} />
+                  </FitScene>
                 </motion.g>
               </AnimatePresence>
             </svg>

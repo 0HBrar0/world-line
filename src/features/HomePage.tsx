@@ -1,9 +1,11 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { href } from '../app/router';
 import { useReduceMotion, useSettings } from '../app/settings';
 import { Badge, ConfidenceLegend } from '../components/Badge';
 import { EDGE_STYLES } from '../components/glyphs';
 import { MechIconGroup } from '../components/MechIcon';
+import { Nixie } from '../components/Nixie';
 import { Linked } from '../components/Term';
 import { canon } from '../data/load';
 import { glossaryById, isVisible, lineLabel, mechanicById, transitionById, worldLineById } from '../data/selectors';
@@ -11,49 +13,54 @@ import type { GlossaryEntry } from '../data/schema';
 import { safeText } from '../data/tierGuard';
 
 const PREMISE_ENTRIES = ['gl-future-gadget-lab', 'gl-phonewave', 'gl-world-line'];
+const EASE = [0.3, 0, 0, 1] as const;
+const JUMP_MS = 1500;
 
 function glossaryTarget(g: GlossaryEntry) {
   return { id: g.id, title: g.term, confidence: g.confidence, sourceIds: g.sourceIds, singleSource: g.singleSource, singleSourceKind: g.singleSourceKind };
 }
 
-/** A premise-tier map: two tracks and the one edge, drawn once. */
-function Teaser() {
+/** The first world-line jump, played once: the meter rolls as the line drops to its new track. */
+function HeroBanner() {
   const { tier } = useSettings();
   const reduce = useReduceMotion();
   const t = transitionById('tr-first-dmail')!;
   const from = worldLineById(t.from)!;
   const to = worldLineById(t.to)!;
   const style = EDGE_STYLES[t.mechanism];
+  const [jumped, setJumped] = useState(false);
   const label = `A map sketch: ${lineLabel(from, tier)} at ${from.divergence} jumps by ${style.label} to ${lineLabel(to, tier)} at ${to.divergence}.`;
+  const draw = (delay: number, duration: number) => (reduce ? {} : { initial: { pathLength: 0 }, animate: { pathLength: 1 }, transition: { delay, duration, ease: EASE } });
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setJumped(true), JUMP_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
+
   return (
     <a className="teaser" href={href('map')}>
       <span className="sr-only">Open the map. {label}</span>
-      <svg viewBox="0 0 640 170" aria-hidden="true">
-        <line className="track" x1="150" x2="340" y1="44" y2="44" />
-        <line className="track" x1="352" x2="620" y1="128" y2="128" />
-        <circle className="node-core node-confirmed" cx="210" cy="44" r="6" />
-        <circle className="node-core node-confirmed" cx="280" cy="44" r="6" />
-        <circle className="node-core node-confirmed" cx="340" cy="44" r="6" />
-        <motion.path
-          d="M 340 44 C 342 86, 350 86, 352 128"
-          fill="none"
-          stroke={style.color}
-          strokeWidth="3"
-          initial={reduce ? false : { pathLength: 0 }}
-          animate={{ pathLength: 1 }}
-          transition={{ duration: 1.2, delay: 0.3, ease: [0.3, 0, 0, 1] }}
-        />
-        <g transform="translate(372 86)">
-          <MechIconGroup kind={t.mechanism} color={style.color} scale={1.2} />
+      <span aria-hidden="true" className="hero-meter">
+        <Nixie value={(reduce || jumped ? to : from).divergence} size="xl" label="" />
+      </span>
+      <svg viewBox="0 0 1180 150" aria-hidden="true">
+        <motion.path d="M 0 36 H 580" className="hero-track" {...draw(0, 0.9)} />
+        <motion.path d="M 610 116 H 1180" className="hero-track" {...draw(1.5, 1)} />
+        <motion.path d="M 580 36 C 590 76, 600 76, 610 116" fill="none" stroke={style.color} strokeWidth="14" opacity="0.2" {...draw(0.9, 0.6)} />
+        <motion.path d="M 580 36 C 590 76, 600 76, 610 116" fill="none" stroke={style.color} strokeWidth="4" {...draw(0.9, 0.6)} />
+        {[160, 340, 580].map((x) => (
+          <circle key={x} className="node-core node-confirmed" cx={x} cy="36" r="7" />
+        ))}
+        {[790, 980].map((x) => (
+          <circle key={x} className="node-core node-confirmed" cx={x} cy="116" r="7" />
+        ))}
+        <g transform="translate(632 76)">
+          <MechIconGroup kind={t.mechanism} color={style.color} scale={1.6} />
         </g>
-        <circle className="node-core node-confirmed" cx="440" cy="128" r="6" />
-        <text className="row-label" x="140" y="48" textAnchor="end">
-          {from.divergence}
-        </text>
-        <text className="row-label" x="340" y="132" textAnchor="end">
-          {to.divergence}
-        </text>
       </svg>
+      <span className="hero-readout mono" aria-hidden="true">
+        {from.divergence} → {to.divergence}
+      </span>
     </a>
   );
 }
@@ -65,6 +72,7 @@ export function HomePage() {
   return (
     <main id="main" className="page home">
       <section className="hero">
+        <HeroBanner />
         <h1>One text message to the past can rewrite history.</h1>
         <p className="lede">
           <Linked text={dmail.oneLiner} tier={tier} />
@@ -81,23 +89,20 @@ export function HomePage() {
           </a>
         </div>
       </section>
-      <div className="home-grid">
-        <section>
-          {PREMISE_ENTRIES.map((id) => {
-            const g = glossaryById(id);
-            if (!g || !isVisible(g, tier, undefined)) return null;
-            return (
-              <p key={id}>
-                {safeText(g.plainLanguage, tier)} <Badge compact target={glossaryTarget(g)} />
-              </p>
-            );
-          })}
-          <p className="detail-meta">
-            You are set to “{level?.label}”, which covers: {safeText(level?.covers ?? '', tier)} Change it in the top bar as you watch or read further.
-          </p>
-        </section>
-        <Teaser />
-      </div>
+      <section className="home-grid" aria-label="The premise">
+        {PREMISE_ENTRIES.map((id) => {
+          const g = glossaryById(id);
+          if (!g || !isVisible(g, tier, undefined)) return null;
+          return (
+            <p key={id} className="card">
+              {safeText(g.plainLanguage, tier)} <Badge compact target={glossaryTarget(g)} />
+            </p>
+          );
+        })}
+      </section>
+      <p className="detail-meta home-level">
+        You are set to “{level?.label}”, which covers: {safeText(level?.covers ?? '', tier)} Change it in the top bar as you watch or read further.
+      </p>
       <ConfidenceLegend />
     </main>
   );
