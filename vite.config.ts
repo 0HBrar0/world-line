@@ -3,16 +3,18 @@ import { loadEnv, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 
 const CLOUDFLARE = 'https://challenges.cloudflare.com';
+const ANALYTICS_SCRIPT = 'https://static.cloudflareinsights.com';
+const ANALYTICS_REPORT = 'https://cloudflareinsights.com';
 
 /** Added to built pages only, because the dev server needs inline scripts. */
 function contentPolicy(uplinkUrl: string): Plugin {
   const policy = [
     `default-src 'self'`,
-    `script-src 'self' ${CLOUDFLARE}`,
+    `script-src 'self' ${CLOUDFLARE} ${ANALYTICS_SCRIPT}`,
     `style-src 'self' 'unsafe-inline'`,
     `img-src 'self' data: blob:`,
     `font-src 'self' data:`,
-    `connect-src 'self' ${uplinkUrl} ${CLOUDFLARE}`,
+    `connect-src 'self' ${uplinkUrl} ${CLOUDFLARE} ${ANALYTICS_REPORT}`,
     `frame-src ${CLOUDFLARE}`,
     `object-src 'none'`,
     `base-uri 'self'`,

@@ -444,7 +444,7 @@ Chips: **VN · Anime · S;G 0 VN · S;G 0 Anime · Film · Other**, with keys fr
   - The mechanic players are short step-based sequences, which fit Framer variants well. If one storyboard proves too complex, a single isolated GSAP timeline inside that one component is acceptable.
 - **Zod** schema mirroring canon.json, run at build time (validator script) and at app start (dev only), plus `z.infer` types for selectors.
 - **Vitest** + Testing Library for selectors and components; **Playwright** for screenshots at 1440×900 and 390×844, plus keyboard flows; **ESLint** (typescript-eslint, react-hooks, jsx-a11y).
-- **No backend, no analytics, no external runtime requests.** Fonts and icons are self-hosted.
+- **No external runtime requests** beyond the owner-approved Creator Uplink and live-site Cloudflare Web Analytics. Fonts and icons are self-hosted.
 
 ---
 
