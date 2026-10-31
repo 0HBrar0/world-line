@@ -39,7 +39,7 @@ interface Hover {
   y: number;
 }
 
-function hoverForNode(id: string, tier: Tier): Hover['text'] | null {
+export function hoverForNode(id: string, tier: Tier): Hover['text'] | null {
   const e = eventById(id);
   if (e) {
     const summary = safeText(e.summary, tier);

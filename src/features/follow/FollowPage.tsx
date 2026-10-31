@@ -12,7 +12,7 @@ import { eventsBySeq, isVisible, mechanicById, tierRank, visibleEvents, worldLin
 import { safeText } from '../../data/tierGuard';
 import { buildMapModel } from '../map/layout';
 import { MapCanvas } from '../map/MapCanvas';
-import { useViewport } from '../map/MapPage';
+import { hoverForNode, useViewport } from '../map/MapPage';
 import { eventTarget } from '../map/targets';
 import { MechanicPlayer } from '../mechanics/MechanicPlayer';
 import { GlassDock } from '../../components/GlassDock';
@@ -120,6 +120,7 @@ export function FollowPage() {
   const [speed, setSpeed] = useState(1);
   const [interlude, setInterlude] = useState<string | null>(null);
   const host = useRef<HTMLDivElement>(null);
+  const card = useRef<HTMLElement>(null);
   const [hostWidth, setHostWidth] = useState(1000);
   const [view, setView] = useState<'entity' | 'flight' | 'chart'>('entity');
   const reduce = useReduceMotion();
@@ -205,6 +206,19 @@ export function FollowPage() {
     return () => window.removeEventListener('keydown', onKey);
   }, [go, index, total, interlude]);
 
+  // Pointing at a point names it; clicking it takes the story there.
+  const [pointed, setPointed] = useState<{ id: string; x: number; y: number } | null>(null);
+  const pointAt = useCallback((id: string | null, x: number, y: number) => setPointed(id ? { id, x, y } : null), []);
+  const pickStep = useCallback(
+    (at: number) => {
+      setPlaying(false);
+      setPointed(null);
+      go(at);
+    },
+    [go],
+  );
+  const pointedText = pointed ? hoverForNode(pointed.id, tier) : null;
+
   const mechanicId = event ? INTERLUDES[event.id] : undefined;
   const mechanic = mechanicId ? mechanicById(mechanicId) : undefined;
   const offerInterlude = mechanic && isVisible(mechanic, tier);
@@ -214,7 +228,15 @@ export function FollowPage() {
       {space && (
         <div className="space-stage" aria-hidden="true">
           <Suspense fallback={null}>
-            <SpaceFlight key={view} view={view === 'flight' ? 'flight' : 'entity'} stops={stops} index={Math.min(index, Math.max(stops.length - 1, 0))} />
+            <SpaceFlight
+              key={view}
+              view={view === 'flight' ? 'flight' : 'entity'}
+              stops={stops}
+              index={Math.min(index, Math.max(stops.length - 1, 0))}
+              onHover={(at, x, y) => pointAt(at === null ? null : (steps[at]?.id ?? null), x, y)}
+              onPick={pickStep}
+              onWheel={(delta) => card.current?.scrollBy(0, delta)}
+            />
           </Suspense>
           {view === 'entity' && <div className="entity-eyes" />}
         </div>
@@ -264,10 +286,13 @@ export function FollowPage() {
             spotlightId={event?.id ?? null}
             spotlightEdgeId={edge?.id ?? null}
             interactive={false}
-            onActivateNode={() => undefined}
+            onActivateNode={(id) => {
+              const at = steps.findIndex((s) => s.id === id);
+              if (at >= 0) pickStep(at);
+            }}
             onActivateEdge={() => undefined}
             onFocusNode={() => undefined}
-            onHoverNode={() => undefined}
+            onHoverNode={pointAt}
             onHoverEdge={() => undefined}
             onKeyDown={() => undefined}
             onPan={() => undefined}
@@ -276,7 +301,7 @@ export function FollowPage() {
           />
         )}
       </div>
-      <section className="follow-card" aria-label="Narration">
+      <section ref={card} className="follow-card" aria-label="Narration">
         <div aria-live="polite" data-testid="narration">
           {event && text ? (
             <>
@@ -326,6 +351,13 @@ export function FollowPage() {
         onEnd={() => go(total - 1)}
         onPace={setSpeed}
       />
+      {pointedText && pointed && (
+        <div className="hover-card" role="presentation" style={{ left: Math.min(pointed.x + 14, w - 320), top: Math.min(pointed.y + 14, h - 170) }}>
+          <strong>{pointedText.title}</strong>
+          {pointedText.date && <span className="detail-meta">{pointedText.date}</span>}
+          {pointedText.badge && <span className="pill">{pointedText.badge}</span>}
+        </div>
+      )}
       {interlude && <Interlude id={interlude} onClose={() => setInterlude(null)} />}
     </main>
   );

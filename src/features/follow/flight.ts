@@ -8,6 +8,8 @@ import type { SpaceStop } from './spaceStops';
 const SPACING = 26;
 const BASE_FOV = 58;
 const SLOW_FRAME_MS = 45;
+const PICK_PX = 26;
+const HOVER_GROW = 2.6;
 // The entity's view: its neck stays put and only the head turns.
 const ENTITY_SCALE = 7;
 const ENTITY_FOV = 42;
@@ -92,6 +94,10 @@ function warpStreaks(random: () => number) {
 
 export interface Flight {
   goTo: (index: number) => void;
+  /** The star nearest a screen position, or null when none is close. */
+  starAt: (clientX: number, clientY: number) => number | null;
+  /** Highlights one star, or none. */
+  hover: (index: number | null) => void;
   dispose: () => void;
 }
 
@@ -173,6 +179,8 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
     scene.add(sprite);
     return sprite;
   });
+  const lightSizes = lights.map((light) => light.scale.x);
+  let hovered: number | null = null;
   const beacon = makeSprite('#ffd9ae', 7 * scale);
   scene.add(beacon);
   const shock = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 64), new THREE.MeshBasicMaterial({ color: '#ffffff', opacity: 0, side: THREE.DoubleSide, ...additive }));
@@ -298,7 +306,9 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
     }
 
     lights.forEach((light, i) => {
-      (light.material as THREE.SpriteMaterial).opacity = i <= index ? 1 : 0.5;
+      (light.material as THREE.SpriteMaterial).opacity = i <= index || i === hovered ? 1 : 0.5;
+      const size = lightSizes[i] * (i === hovered ? HOVER_GROW : 1);
+      light.scale.setScalar(THREE.MathUtils.lerp(light.scale.x, size, 0.22));
     });
 
     if (useBloom) composer.render();
@@ -306,7 +316,27 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
   };
   frame = requestAnimationFrame(render);
 
+  const probe = new THREE.Vector3();
+
   return {
+    starAt(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      let nearest: number | null = null;
+      let best = PICK_PX;
+      lights.forEach((light, i) => {
+        probe.copy(light.position).project(camera);
+        if (Math.abs(probe.z) > 1) return;
+        const gap = Math.hypot(((probe.x + 1) / 2) * rect.width + rect.left - clientX, ((1 - probe.y) / 2) * rect.height + rect.top - clientY);
+        if (gap < best) {
+          best = gap;
+          nearest = i;
+        }
+      });
+      return nearest;
+    },
+    hover(next) {
+      hovered = next;
+    },
     goTo(next) {
       if (next === index) return;
       const steps = Math.abs(next - index);

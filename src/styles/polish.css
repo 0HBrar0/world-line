@@ -214,6 +214,16 @@ a.tile:hover { transform: scale(1.012); }
 .glass-dock-follow { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%); }
 .page-follow { padding-bottom: 104px; }
 .follow-open { width: fit-content; margin-top: 8px; }
+/* Panels over the 3D views let the mouse through to the stars; only real controls catch it */
+@media (min-width: 768px) {
+  .is-space .follow-card, .is-space .follow-head { pointer-events: none; }
+  .is-space .follow-card a, .is-space .follow-card button, .is-space .follow-head > * { pointer-events: auto; }
+  .is-space .follow-head h1 { pointer-events: none; }
+}
+.hover-card { pointer-events: none; }
+.follow-map .map-node { cursor: pointer; }
+.follow-map .node-core { transition: transform 0.18s ease; }
+.follow-map .map-node:hover .node-core { transform: scale(1.7); }
 .band-label { font: italic 400 15px var(--font-display); letter-spacing: 0; text-transform: none; fill: var(--ink-0); opacity: 0.8; }
 .track { stroke: #6f6f78; }
 .node-halo { opacity: 0.14; }
