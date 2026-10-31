@@ -5,6 +5,7 @@ import { atLeast, isVisible, tierRank, transitionById, transitionTier, worldLine
 export interface SpaceStop {
   value: number;
   jumpColor: string | null;
+  jumpKind: Mechanism | null;
   tint: string;
 }
 
@@ -29,7 +30,7 @@ export function spaceStops(steps: StoryEvent[], tier: Tier): SpaceStop[] {
     const jump = t && tierRank(transitionTier(t)) <= tierRank(tier) ? t : undefined;
     // Field colours follow the map's rule: nothing that names a field before sg_part2.
     const field = !seen || !atLeast(tier, 'sg_part2') ? null : seen.lane === 'sg0' ? 'sg0' : seen.attractorField === 'steins_gate' ? 'steins_gate' : value < 1 ? 'alpha' : 'beta';
-    return { value, jumpColor: jump ? JUMP_COLORS[jump.mechanism] : null, tint: field ? FIELD_TINTS[field] : NEUTRAL };
+    return { value, jumpColor: jump ? JUMP_COLORS[jump.mechanism] : null, jumpKind: jump?.mechanism ?? null, tint: field ? FIELD_TINTS[field] : NEUTRAL };
   });
 }
 

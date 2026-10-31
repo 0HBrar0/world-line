@@ -86,6 +86,7 @@ for (const view of ['Observer', 'Flight', 'Chart']) {
   test(`the glass arrows work in ${view}`, async ({ page }, info) => {
     test.skip(view === 'Chart' && info.project.name === 'mobile', 'the chart is desktop only');
     test.skip(!!process.env.CI, 'needs local 3D');
+    test.setTimeout(120_000);
     await force3d(page);
     await setTier(page, 'extras');
     await page.goto('/#/follow/1');

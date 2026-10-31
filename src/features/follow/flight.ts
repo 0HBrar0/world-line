@@ -3,13 +3,15 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { createCosmos } from './cosmos';
+import { createMarkers } from './markers';
 import type { SpaceStop } from './spaceStops';
 
 const SPACING = 26;
 const BASE_FOV = 58;
-const SLOW_FRAME_MS = 45;
+// Average frame times that step quality down: first the light rays and sharpness, then the glow.
+const SLOW_FRAME_MS = [26, 45];
 const PICK_PX = 26;
-const HOVER_GROW = 2.6;
 // The entity's view: its neck stays put and only the head turns.
 const ENTITY_SCALE = 7;
 const ENTITY_FOV = 42;
@@ -110,8 +112,9 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color('#02030a');
-  const camera = new THREE.PerspectiveCamera(entity ? ENTITY_FOV : BASE_FOV, 1, 0.1, entity ? 7000 : 900);
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1;
+  const camera = new THREE.PerspectiveCamera(entity ? ENTITY_FOV : BASE_FOV, 1, 0.5, 7000);
 
   const glow = softTexture([[0, 'rgba(255,255,255,1)'], [0.18, 'rgba(255,255,255,0.75)'], [0.45, 'rgba(255,255,255,0.14)'], [1, 'rgba(255,255,255,0)']]);
   const cloud = softTexture([[0, 'rgba(255,255,255,0.55)'], [0.5, 'rgba(255,255,255,0.16)'], [1, 'rgba(255,255,255,0)']]);
@@ -135,6 +138,7 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
   };
 
   const far = points.length * SPACING;
+  const cosmos = createCosmos(renderer, scene, points, entity, random);
   if (entity) {
     scene.add(galaxy(16000, 1000, glow, random));
     scene.add(starField(3500, 2400, 7, 3000, glow, random));
@@ -154,7 +158,7 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
 
   stops.forEach((stop, i) => {
     if (i % 2) return;
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloud, color: stop.tint, opacity: 0.16 + random() * 0.18, ...additive }));
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: cloud, color: stop.tint, opacity: 0.05 + random() * 0.08, ...additive }));
     const size = (150 + random() * 170) * (entity ? 3 : 1);
     sprite.scale.set(size, size * (0.55 + random() * 0.5), 1);
     sprite.position.copy(points[i]).add(new THREE.Vector3((random() - 0.5) * 170, (random() - 0.5) * 90, -50 - random() * 60).multiplyScalar(entity ? 3 : 1));
@@ -173,15 +177,10 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
     sprite.scale.setScalar(size);
     return sprite;
   };
-  const lights = points.slice(0, stops.length).map((point, i) => {
-    const sprite = makeSprite(stops[i].jumpColor ?? '#ffe9d0', (stops[i].jumpColor ? 3.4 : 2.1) * scale);
-    sprite.position.copy(point);
-    scene.add(sprite);
-    return sprite;
-  });
-  const lightSizes = lights.map((light) => light.scale.x);
+  const markers = createMarkers(scene, stops, points, entity ? 9 : 0.62, glow);
+  const lights = markers.items;
   let hovered: number | null = null;
-  const beacon = makeSprite('#ffd9ae', 7 * scale);
+  const beacon = makeSprite('#ffd9ae', 1.4 * scale);
   scene.add(beacon);
   const shock = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 64), new THREE.MeshBasicMaterial({ color: '#ffffff', opacity: 0, side: THREE.DoubleSide, ...additive }));
   scene.add(shock);
@@ -191,8 +190,9 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
 
   const composer = new EffectComposer(renderer);
   composer.addPass(new RenderPass(scene, camera));
-  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.5, 0.6, 0.2);
+  const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.38, 0.55, 0.8);
   composer.addPass(bloom);
+  composer.addPass(cosmos.rays);
   composer.addPass(new OutputPass());
   let useBloom = true;
 
@@ -230,6 +230,7 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
 
   const arrive = (now: number) => {
     trip.arrived = true;
+    markers.arrive(index);
     const stop = stops[index];
     if (!stop?.jumpColor) return;
     (shock.material as THREE.MeshBasicMaterial).color.set(stop.jumpColor);
@@ -245,11 +246,15 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
     frames += 1;
     if (frames > 10 && useBloom) {
       slow = slow * 0.95 + dt * 0.05;
-      // Weak graphics chips drop the glow pass rather than stutter.
-      if (frames > 24 && slow > SLOW_FRAME_MS) {
-        useBloom = false;
+      if (frames > 24 && cosmos.rays.enabled && slow > SLOW_FRAME_MS[0]) {
+        cosmos.rays.enabled = false;
         renderer.setPixelRatio(1);
+        composer.setPixelRatio(1);
         resize();
+        frames = 10;
+        slow = 0;
+      } else if (frames > 24 && slow > SLOW_FRAME_MS[1]) {
+        useBloom = false;
       }
     }
 
@@ -295,7 +300,7 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
     }
 
     const pulse = 1 + Math.sin(now * 0.0028) * 0.12;
-    beacon.scale.setScalar((trip.arrived ? 4.5 : 2.5) * pulse * scale);
+    beacon.scale.setScalar((trip.arrived ? 0 : 1.8) * pulse * scale);
 
     const age = (now - shockAt) / 1300;
     const material = shock.material as THREE.MeshBasicMaterial;
@@ -305,12 +310,9 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
       shock.lookAt(camera.position);
     }
 
-    lights.forEach((light, i) => {
-      (light.material as THREE.SpriteMaterial).opacity = i <= index || i === hovered ? 1 : 0.5;
-      const size = lightSizes[i] * (i === hovered ? HOVER_GROW : 1);
-      light.scale.setScalar(THREE.MathUtils.lerp(light.scale.x, size, 0.22));
-    });
+    markers.update(now, dt, index, hovered);
 
+    cosmos.update(now, camera);
     if (useBloom) composer.render();
     else renderer.render(scene, camera);
   };
@@ -360,6 +362,7 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
       });
       glow.dispose();
       cloud.dispose();
+      cosmos.dispose();
       composer.dispose();
       renderer.dispose();
     },
