@@ -1,5 +1,7 @@
 # World Line
 
+**Live site:** https://0hbrar0.github.io/world-line/
+
 An animated, interactive, spoiler-safe explainer of the Steins;Gate and Steins;Gate 0 story and time-travel mechanics, for first-time viewers. It is a static site with no backend and no runtime network requests. Every story fact comes from `data/canon.json` and shows a confidence badge that opens its sources. Unofficial fan project: no official art, screenshots, logos, music or script text.
 
 **Screens:** world-line map, Follow the story (guided playback), six mechanic explainers, Compare, Glossary, Characters, S;G 0, Endings, Works, Disputes, About.
