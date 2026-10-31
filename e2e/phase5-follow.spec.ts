@@ -40,13 +40,17 @@ test('narration comes from canon, with unlocked reveals appended', async ({ page
 
 test('keyboard controls and saved progress', async ({ page }) => {
   await page.goto('/#/follow/1');
+  await expect(page.getByTestId('narration')).toBeVisible();
   await page.keyboard.press('ArrowRight');
+  await expect(page).toHaveURL(/follow\/2/);
   await page.keyboard.press('ArrowRight');
   await expect(page).toHaveURL(/follow\/3/);
   await page.keyboard.press('End');
   await expect(page.getByTestId('tier-wall')).toBeVisible();
   await page.keyboard.press('Home');
+  await expect(page).toHaveURL(/follow\/1/);
   await page.keyboard.press('ArrowRight');
+  await expect(page).toHaveURL(/follow\/2/);
   await page.goto('/#/');
   await page.goto('/#/follow');
   await expect(page.getByTestId('narration')).toContainText(canon.events.find((e: Any) => e.seq === 2).title);
