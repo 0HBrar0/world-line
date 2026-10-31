@@ -202,6 +202,8 @@ a.tile:hover { transform: scale(1.012); }
 .glass-pace select { appearance: none; border: 0; border-radius: 999px; padding: 5px 9px; min-height: 30px; color: #fff; background: rgba(255, 255, 255, 0.08); font: inherit; font-size: 0.85rem; cursor: pointer; }
 .glass-pace option { color: #000; }
 .map-host { position: relative; }
+/* Blur is costly on a moving map, so the glass goes plain during a drag */
+.map-host:has(.map-svg:active) .glass-dock, .map-host:has(.map-svg:active) .glass-now { backdrop-filter: none; }
 .glass-dock-map { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); max-width: calc(100% - 24px); }
 .glass-dock-map .minimap { flex: none; margin: 0 0 0 6px; background: rgba(255, 255, 255, 0.05); cursor: grab; touch-action: none; }
 .glass-dock-map .minimap:active { cursor: grabbing; }
