@@ -1,0 +1,44 @@
+/* Design tokens from docs/visual-concept.md section 2.1. */
+@font-face { font-family: 'Inter'; src: url('/fonts/inter-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Inter'; src: url('/fonts/inter-latin-600-normal.woff2') format('woff2'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'JetBrains Mono'; src: url('/fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'JetBrains Mono'; src: url('/fonts/jetbrains-mono-latin-700-normal.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Space Grotesk'; src: url('/fonts/space-grotesk-latin-500-normal.woff2') format('woff2'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Space Grotesk'; src: url('/fonts/space-grotesk-latin-700-normal.woff2') format('woff2'); font-weight: 700; font-display: swap; }
+
+:root {
+  --bg-0: #0b0d10;
+  --bg-1: #12161b;
+  --bg-2: #1a2027;
+  --grid: #1f2a33;
+  --ink-0: #e8edf2;
+  --ink-1: #a9b4bf;
+  --ink-2: #6c7884;
+  --nixie: #ff8a1f;
+  --nixie-glow: rgba(255, 138, 31, 0.35);
+  --band-alpha: #1b2a3a;
+  --band-beta: #2a1f33;
+  --band-sg: #2a2a14;
+  --band-sg-stroke: #e6c84a;
+  --band-sg0: #14262a;
+  --band-neutral: #171c22;
+  --boundary: rgba(255, 138, 31, 0.6);
+  --conf-confirmed: #3ecf8e;
+  --conf-interp: #7aa7ff;
+  --conf-unclear: #ffb020;
+  --danger: #ff5a6e;
+
+  --edge-dmail: #e69f00;
+  --edge-cancel: #56b4e9;
+  --edge-machine: #009e73;
+  --edge-leap: #cc79a7;
+  --edge-erasure: #d55e00;
+  --edge-other: #bbbbbb;
+  --edge-reconnect: #f0e442;
+
+  --font-body: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --font-display: 'Space Grotesk', 'Inter', sans-serif;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --topbar-h: 104px;
+}
