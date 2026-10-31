@@ -83,111 +83,203 @@ const dollarSign = () =>
     64,
   );
 
-/** An all-steel wedge of a pickup: one flat folded line over the top, on four chunky wheels. */
-function steelTruck() {
-  const truck = new THREE.Group();
-  const LENGTH_SIDE: Array<[number, number]> = [[-0.72, 0.13], [0.72, 0.13], [0.74, 0.3], [0.66, 0.34], [-0.12, 0.62], [-0.72, 0.36]];
-  const side = new THREE.Shape(LENGTH_SIDE.map(([x, y]) => new THREE.Vector2(x, y)));
-  const hull = new THREE.Mesh(new THREE.ExtrudeGeometry(side, { depth: 0.5, bevelEnabled: false }), clay('#b4b8c0', 0.2));
-  hull.position.z = -0.25;
-  const glass = new THREE.Shape([[0.42, 0.42], [-0.12, 0.6], [-0.44, 0.47], [-0.42, 0.42]].map(([x, y]) => new THREE.Vector2(x, y)));
-  const panes = new THREE.Mesh(new THREE.ExtrudeGeometry(glass, { depth: 0.52, bevelEnabled: false }), clay('#20242c', 0.1));
-  panes.position.z = -0.26;
-  const lamp = block(0.012, 0.018, 0.48, new THREE.MeshBasicMaterial({ color: '#e8f2ff', toneMapped: false }), [0.742, 0.31, 0]);
-  truck.add(hull, panes, lamp);
-  const tyre = clay('#1e1d20', 0.06);
-  [-0.42, 0.42].forEach((x) => {
-    [-0.27, 0.27].forEach((z) => {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.11, 8), tyre);
-      wheel.rotation.x = Math.PI / 2;
-      wheel.position.set(x, 0.14, z);
-      truck.add(wheel);
-    });
-  });
-  return truck;
+const CAR_CYCLE_S = 18;
+const CAR_SLOPE = 0.56;
+const TV_FRAME_MS = 80;
+
+/** How far through its hop the car is, from the clock: resting most of the time, then up, a hover, and back down. */
+function carHop(seconds: number) {
+  const k = (seconds % CAR_CYCLE_S) / CAR_CYCLE_S;
+  const rise = THREE.MathUtils.smoothstep(k, 0.58, 0.7);
+  const fall = THREE.MathUtils.smoothstep(k, 0.84, 0.96);
+  const height = rise * (1 - fall);
+  const burn = THREE.MathUtils.smoothstep(k, 0.54, 0.58) * (1 - THREE.MathUtils.smoothstep(k, 0.96, 0.99));
+  return { height: height + (height > 0.9 ? Math.sin(seconds * 3) * 0.03 : 0), burn };
 }
 
-/** The painting on the ground: a steel rocket coming down on its flame above a parked truck, all in one brush. */
-function paintedCanvas() {
-  return painted(
-    (c) => {
-      const sky = c.createLinearGradient(0, 0, 0, 340);
-      sky.addColorStop(0, '#120a24');
-      sky.addColorStop(0.55, '#4a2348');
-      sky.addColorStop(1, '#e0824a');
-      c.fillStyle = sky;
-      c.fillRect(0, 0, 512, 360);
-      c.fillStyle = '#fff';
-      for (let i = 0; i < 70; i += 1) c.fillRect((i * 149) % 512, (i * 83) % 190, i % 7 ? 1.5 : 3, i % 7 ? 1.5 : 3);
-      c.fillStyle = '#7fc4ff';
-      c.beginPath();
-      c.arc(92, 74, 30, 0, Math.PI * 2);
-      c.fill();
-      c.fillStyle = '#3f9a6c';
-      c.beginPath();
-      c.ellipse(84, 68, 13, 9, 0.5, 0, Math.PI * 2);
-      c.fill();
-      c.fillStyle = '#a84a26';
-      c.beginPath();
-      c.moveTo(0, 296);
-      c.quadraticCurveTo(170, 256, 300, 288);
-      c.quadraticCurveTo(420, 312, 512, 276);
-      c.lineTo(512, 360);
-      c.lineTo(0, 360);
-      c.fill();
-      const fire = c.createLinearGradient(0, 214, 0, 296);
-      fire.addColorStop(0, '#fff4c8');
-      fire.addColorStop(0.5, '#ff9a2e');
-      fire.addColorStop(1, 'rgba(255,90,20,0)');
-      c.fillStyle = fire;
-      c.beginPath();
-      c.moveTo(322, 214);
-      c.lineTo(366, 214);
-      c.lineTo(344, 300);
-      c.fill();
-      c.fillStyle = '#dfe3ea';
-      c.beginPath();
-      c.moveTo(344, 26);
-      c.quadraticCurveTo(372, 62, 372, 96);
-      c.lineTo(372, 214);
-      c.lineTo(316, 214);
-      c.lineTo(316, 96);
-      c.quadraticCurveTo(316, 62, 344, 26);
-      c.fill();
-      c.fillStyle = '#9aa0aa';
-      c.fillRect(356, 96, 16, 118);
-      c.fillStyle = '#23262e';
-      c.fillRect(316, 124, 56, 6);
-      c.beginPath();
-      c.moveTo(316, 176);
-      c.lineTo(292, 222);
-      c.lineTo(316, 214);
-      c.moveTo(372, 176);
-      c.lineTo(396, 222);
-      c.lineTo(372, 214);
-      c.fill();
-      c.fillStyle = '#c3c7cf';
-      c.beginPath();
-      c.moveTo(40, 300);
-      c.lineTo(46, 262);
-      c.lineTo(112, 232);
-      c.lineTo(226, 276);
-      c.lineTo(232, 300);
-      c.fill();
-      c.fillStyle = '#20242c';
-      c.beginPath();
-      c.moveTo(72, 262);
-      c.lineTo(112, 244);
-      c.lineTo(168, 266);
-      c.fill();
-      c.beginPath();
-      c.arc(78, 302, 15, 0, Math.PI * 2);
-      c.arc(194, 302, 15, 0, Math.PI * 2);
-      c.fill();
+/** A low white supercar: long nose, teardrop cabin and a clean tail, with rocket pods at the back and lift jets underneath. */
+function roadster() {
+  const car = new THREE.Group();
+  const flying = new THREE.Group();
+  car.add(flying);
+  const body = new THREE.Shape();
+  body.moveTo(-0.76, 0.12);
+  body.lineTo(0.76, 0.12);
+  body.quadraticCurveTo(0.84, 0.13, 0.84, 0.17);
+  body.quadraticCurveTo(0.6, 0.25, 0.3, 0.3);
+  body.quadraticCurveTo(0.08, 0.45, -0.16, 0.45);
+  body.quadraticCurveTo(-0.5, 0.42, -0.78, 0.29);
+  body.quadraticCurveTo(-0.8, 0.2, -0.76, 0.12);
+  const hull = new THREE.Mesh(new THREE.ExtrudeGeometry(body, { depth: 0.5, curveSegments: 5, bevelEnabled: true, bevelSize: 0.035, bevelThickness: 0.04, bevelSegments: 2 }), clay('#f2f2ef', 0.22));
+  hull.position.z = -0.25;
+  const cabin = new THREE.Shape();
+  cabin.moveTo(0.29, 0.305);
+  cabin.quadraticCurveTo(0.08, 0.452, -0.16, 0.455);
+  cabin.quadraticCurveTo(-0.34, 0.44, -0.46, 0.385);
+  cabin.lineTo(-0.2, 0.31);
+  cabin.closePath();
+  const glass = new THREE.Mesh(new THREE.ExtrudeGeometry(cabin, { depth: 0.44, curveSegments: 5, bevelEnabled: false }), new THREE.MeshStandardMaterial({ color: '#141a22', roughness: 0.18, metalness: 0.6, flatShading: true }));
+  glass.position.z = -0.22;
+  const sideWindow = new THREE.Mesh(new THREE.ExtrudeGeometry(cabin, { depth: 0.6, curveSegments: 5, bevelEnabled: false }), glass.material);
+  sideWindow.scale.set(0.8, 0.97, 1);
+  sideWindow.position.set(-0.02, 0.02, -0.3);
+  const black = clay('#1e1d20', 0.06);
+  const steel = clay('#c4c8d0', 0.24);
+  const lamp = new THREE.MeshBasicMaterial({ color: '#eaf4ff', toneMapped: false });
+  const tail = new THREE.MeshBasicMaterial({ color: '#ff2a2a', toneMapped: false });
+  flying.add(hull, glass, sideWindow, block(0.012, 0.02, 0.56, tail, [-0.81, 0.26, 0]), block(0.09, 0.016, 0.12, lamp, [0.76, 0.17, 0.2]), block(0.09, 0.016, 0.12, lamp, [0.76, 0.17, -0.2]), block(0.16, 0.03, 0.42, black, [0.78, 0.125, 0]));
+  [-0.47, 0.5].forEach((x) => {
+    [-0.285, 0.285].forEach((z) => {
+      const arch = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.05, 12), black);
+      arch.rotation.x = Math.PI / 2;
+      arch.position.set(x, 0.135, z * 1.02);
+      const tyre = new THREE.Mesh(new THREE.CylinderGeometry(0.135, 0.135, 0.12, 12), black);
+      tyre.rotation.x = Math.PI / 2;
+      tyre.position.set(x, 0.135, z);
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.125, 5), steel);
+      rim.rotation.x = Math.PI / 2;
+      rim.position.set(x, 0.135, z);
+      flying.add(arch, tyre, rim);
+    });
+  });
+
+  const fire = (length: number, width: number, color: string) => {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(width, length, 8, 1, true), new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false, side: THREE.DoubleSide }));
+    cone.position.y = -length / 2;
+    cone.rotation.x = Math.PI;
+    return cone;
+  };
+  const jets: THREE.Group[] = [];
+  const jet = (x: number, y: number, z: number, length: number, sideways: boolean) => {
+    const pod = rod(0.055, 0.1, steel, [x, y, z]);
+    const flame = new THREE.Group();
+    flame.position.set(x, y - 0.05, z);
+    flame.add(fire(length, 0.05, '#ff6a14'), fire(length * 0.6, 0.026, '#ffe9b0'));
+    if (sideways) {
+      pod.rotation.z = Math.PI / 2;
+      flame.position.set(x - 0.05, y, z);
+      flame.rotation.z = -Math.PI / 2;
+    }
+    flying.add(pod, flame);
+    jets.push(flame);
+  };
+  [[-0.5, -0.2], [-0.5, 0.2], [0.5, -0.2], [0.5, 0.2]].forEach(([x, z]) => jet(x, 0.08, z, 0.42, false));
+  [-0.09, 0.09].forEach((z) => jet(-0.84, 0.2, z, 0.62, true));
+
+  return {
+    car,
+    fly(now: number) {
+      const { height, burn } = carHop(now / 1000);
+      // It parks on the slope, so it climbs straight up the screen and levels out as it goes.
+      flying.position.set(height * 0.75, height * 0.7, 0);
+      flying.rotation.z = -CAR_SLOPE * height + Math.sin(height * Math.PI) * 0.1;
+      jets.forEach((flame, i) => {
+        flame.visible = burn > 0.02;
+        flame.scale.setScalar(Math.max(burn, 0.02) * (1 + Math.sin(now * 0.05 + i) * 0.16));
+      });
     },
-    512,
-    360,
-  );
+  };
+}
+
+/** A fat old television on the ground. Its picture is a live feed of the same car, drawn from the same clock. */
+function television() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 320;
+  canvas.height = 220;
+  const c = canvas.getContext('2d')!;
+  const picture = new THREE.CanvasTexture(canvas);
+  picture.colorSpace = THREE.SRGBColorSpace;
+  const draw = (now: number) => {
+    const seconds = now / 1000;
+    const { height, burn } = carHop(seconds);
+    const sky = c.createLinearGradient(0, 0, 0, 220);
+    sky.addColorStop(0, '#0d0a20');
+    sky.addColorStop(1, '#4b2346');
+    c.fillStyle = sky;
+    c.fillRect(0, 0, 320, 220);
+    c.fillStyle = '#fff';
+    for (let i = 0; i < 44; i += 1) c.fillRect((i * 149 + seconds * 6) % 320, (i * 83) % 150, 1.5, 1.5);
+    c.fillStyle = '#b04e2a';
+    c.beginPath();
+    c.ellipse(160, 300, 300, 120, 0, 0, Math.PI * 2);
+    c.fill();
+    const y = 166 - height * 96;
+    const x = 160;
+    if (burn > 0.02) {
+      const flicker = burn * (1 + Math.sin(now * 0.05) * 0.18);
+      c.fillStyle = '#ff7a24';
+      c.beginPath();
+      c.moveTo(x - 72, y - 13);
+      c.lineTo(x - 72 - 74 * flicker, y - 6);
+      c.lineTo(x - 72, y);
+      [-40, 40].forEach((at) => {
+        c.moveTo(at + x - 8, y + 12);
+        c.lineTo(at + x, y + 12 + 44 * flicker);
+        c.lineTo(at + x + 8, y + 12);
+      });
+      c.fill();
+    }
+    c.fillStyle = '#f4f4f1';
+    c.beginPath();
+    c.moveTo(x - 72, y + 6);
+    c.lineTo(x + 80, y + 6);
+    c.quadraticCurveTo(x + 86, y - 2, x + 62, y - 9);
+    c.quadraticCurveTo(x + 40, y - 14, x + 22, y - 17);
+    c.quadraticCurveTo(x + 2, y - 34, x - 18, y - 34);
+    c.quadraticCurveTo(x - 50, y - 30, x - 74, y - 14);
+    c.quadraticCurveTo(x - 76, y - 4, x - 72, y + 6);
+    c.fill();
+    c.fillStyle = '#141a22';
+    c.beginPath();
+    c.moveTo(x + 16, y - 18);
+    c.quadraticCurveTo(x, y - 31, x - 18, y - 31);
+    c.quadraticCurveTo(x - 34, y - 29, x - 44, y - 23);
+    c.lineTo(x - 20, y - 16);
+    c.fill();
+    c.fillStyle = '#ff2a2a';
+    c.fillRect(x - 75, y - 11, 3, 8);
+    [-44, 48].forEach((at) => {
+      c.fillStyle = '#1b1a1e';
+      c.beginPath();
+      c.arc(x + at, y + 6, 13, 0, Math.PI * 2);
+      c.fill();
+      c.fillStyle = '#c4c8d0';
+      c.beginPath();
+      c.arc(x + at, y + 6, 7, 0, Math.PI * 2);
+      c.fill();
+    });
+    c.fillStyle = 'rgba(0,0,0,0.2)';
+    for (let line = 0; line < 220; line += 4) c.fillRect(0, line, 320, 1.5);
+    if (Math.floor(seconds) % 2 === 0) {
+      c.fillStyle = '#ff3b30';
+      c.beginPath();
+      c.arc(20, 20, 6, 0, Math.PI * 2);
+      c.fill();
+    }
+    c.fillStyle = '#fff';
+    c.font = 'bold 15px monospace';
+    c.fillText('LIVE', 32, 25);
+    picture.needsUpdate = true;
+  };
+  draw(0);
+
+  const tv = new THREE.Group();
+  const shell = clay('#3a2c22');
+  const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.56, 0.38), new THREE.MeshBasicMaterial({ map: picture }));
+  screen.position.set(-0.04, 0.3, 0.073);
+  tv.add(block(0.72, 0.5, 0.14, shell, [0, 0.3, 0]), screen);
+  [0.34, 0.46].forEach((y) => {
+    const knob = rod(0.022, 0.03, clay('#c8b890'), [0.3, y - 0.14, 0.075]);
+    knob.rotation.x = Math.PI / 2;
+    tv.add(knob);
+  });
+  [-0.5, 0.5].forEach((lean) => {
+    const aerial = rod(0.007, 0.34, clay('#bfc3cc'), [lean * 0.28, 0.69, 0]);
+    aerial.rotation.z = -lean;
+    tv.add(aerial);
+    tv.add(block(0.05, 0.05, 0.1, shell, [lean * 0.8, 0.03, 0]));
+  });
+  return { tv, draw };
 }
 
 function spaceman() {
@@ -476,20 +568,18 @@ export function marsCamp(ship: THREE.Group, glow: THREE.Texture) {
   const rig = spaceman();
   group.add(rig.man);
 
-  const truck = steelTruck();
-  truck.scale.setScalar(0.62);
-  truck.position.set(-0.66, ground(-0.66, -0.62) - 0.03, -0.62);
-  truck.rotation.set(-0.34, 0, 0.36);
-  const art = new THREE.Group();
-  art.add(block(0.82, 0.05, 0.62, clay('#b08a3c', 0.25)), new THREE.Mesh(new THREE.PlaneGeometry(0.74, 0.54), new THREE.MeshBasicMaterial({ map: paintedCanvas() })));
-  art.children[1].rotation.x = -Math.PI / 2;
-  art.children[1].position.y = 0.027;
-  art.scale.setScalar(0.72);
-  art.position.set(-0.42, ground(-0.42, 0.74) + 0.09, 0.74);
-  art.rotation.set(0.74, 0.1, 0.2);
+  const flyer = roadster();
+  flyer.car.scale.setScalar(0.62);
+  flyer.car.position.set(-1, ground(-1, -0.12) - 0.03, -0.12);
+  flyer.car.rotation.set(-0.06, 0, CAR_SLOPE);
+  const set = television();
+  set.tv.scale.setScalar(0.68);
+  set.tv.position.set(-0.2, ground(-0.2, 0.84) - 0.01, 0.84);
+  set.tv.rotation.set(0.12, 0.16, 0.1);
+  let lastPicture = 0;
   ship.scale.setScalar(0.62);
   ship.position.set(1.05, 0.19, -0.42);
-  group.add(truck, art, rock(0.09, clay('#6e2c1a'), [-0.42, ground(-0.42, 0.56) + 0.03, 0.56]), ship);
+  group.add(flyer.car, set.tv, ship);
   const dust = clay('#6e2c1a');
   [[0.6, 0.02, 0.86, 0.09], [0.95, -0.05, 0.5, 0.06], [-0.2, 0.02, -0.75, 0.1]].forEach(([x, y, z, size]) => group.add(rock(size, dust, [x, y + ground(x, z), z])));
 
@@ -524,6 +614,11 @@ export function marsCamp(ship: THREE.Group, glow: THREE.Texture) {
       show(id ? jobs[id] : idle, now);
     },
     update(now: number) {
+      flyer.fly(now);
+      if (current !== idle && now - lastPicture > TV_FRAME_MS) {
+        lastPicture = now;
+        set.draw(now);
+      }
       rig.stand();
       current.play((now - started) / 1000);
     },
