@@ -6,7 +6,9 @@ const MAX_MESSAGE = 500;
 const MAX_CONTACT = 254;
 const MAX_HONEYPOT = 100;
 const NTFY_TIMEOUT_MS = 8000;
+const MAX_CHECK_TOKEN = 2048;
 const FIELDS = ['contact', 'contactMethod', 'message', 'website'];
+const SITEVERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export interface UplinkConfig {
@@ -14,6 +16,8 @@ export interface UplinkConfig {
   ntfyTopic?: string;
   ntfyToken?: string;
   allowedOrigins: string[];
+  /** Turns on the Turnstile check for visitors over their limit. Without it they just wait. */
+  turnstileSecret?: string;
   /** True only behind Railway's proxy, whose X-Real-IP a visitor can't set. */
   trustProxy: boolean;
   fetch?: typeof fetch;
@@ -24,6 +28,7 @@ interface Signal {
   message: string;
   contactMethod: 'none' | 'email' | 'other';
   contact: string;
+  checkToken?: string;
 }
 
 const length = (text: string) => [...text].length;
@@ -56,12 +61,13 @@ function parseSignal(raw: Buffer): Signal | 'honeypot' | null {
   }
   if (typeof data !== 'object' || data === null || Array.isArray(data)) return null;
   const fields = data as Record<string, unknown>;
-  if (Object.keys(fields).sort().join() !== FIELDS.join()) return null;
-  const { message, contactMethod, contact, website } = fields;
+  if (Object.keys(fields).filter((key) => key !== 'turnstileToken').sort().join() !== FIELDS.join()) return null;
+  const { message, contactMethod, contact, website, turnstileToken } = fields;
+  if (turnstileToken !== undefined && (typeof turnstileToken !== 'string' || !turnstileToken || turnstileToken.length > MAX_CHECK_TOKEN)) return null;
   if (typeof message !== 'string' || typeof contact !== 'string' || typeof website !== 'string') return null;
   if (contactMethod !== 'none' && contactMethod !== 'email' && contactMethod !== 'other') return null;
 
-  const signal: Signal = { message: message.trim(), contactMethod, contact: contact.trim() };
+  const signal: Signal = { message: message.trim(), contactMethod, contact: contact.trim(), checkToken: turnstileToken };
   const trap = website.trim();
   if (length(trap) > MAX_HONEYPOT || length(signal.message) > MAX_MESSAGE || length(signal.contact) > MAX_CONTACT) return null;
   if ((signal.contactMethod === 'none') !== (signal.contact === '')) return null;
@@ -87,6 +93,21 @@ export function createUplink(config: UplinkConfig) {
     const forwarded = config.trustProxy ? req.headers['x-real-ip'] : undefined;
     return (typeof forwarded === 'string' && forwarded) || req.socket.remoteAddress || 'unknown';
   };
+
+  async function passedCheck(token: string, ip: string) {
+    try {
+      const answer = await post(SITEVERIFY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ secret: config.turnstileSecret, response: token, remoteip: ip }),
+        signal: AbortSignal.timeout(NTFY_TIMEOUT_MS),
+      });
+      return ((await answer.json()) as { success?: boolean }).success === true;
+    } catch (error) {
+      console.error(`human check failed: ${error instanceof Error ? error.name : 'unknown'}`);
+      return false;
+    }
+  }
 
   async function notify(signal: Signal): Promise<{ status: number; error?: string }> {
     const headers: Record<string, string> = { Title: 'WORLD LINE | CREATOR UPLINK', 'Content-Type': 'text/plain; charset=utf-8' };
@@ -129,8 +150,14 @@ export function createUplink(config: UplinkConfig) {
     if (signal === 'honeypot') return fail(403, 'FORBIDDEN');
     if (!ready) return fail(503, 'SERVICE_UNAVAILABLE');
 
-    const retryAfter = limits.take(clientIp(req), now());
-    if (retryAfter > 0) return send(res, 429, { success: false, error: 'RATE_LIMITED', retryAfter }, { ...cors, 'Retry-After': String(retryAfter) });
+    const ip = clientIp(req);
+    let limit = limits.take(ip, now());
+    const canCheck = limit.solvable && Boolean(config.turnstileSecret);
+    if (canCheck && signal.checkToken && (await passedCheck(signal.checkToken, ip))) limit = limits.take(ip, now(), true);
+    if (limit.wait > 0) {
+      const body = { success: false, error: 'RATE_LIMITED', retryAfter: limit.wait, ...(canCheck && { challenge: true }) };
+      return send(res, 429, body, { ...cors, 'Retry-After': String(limit.wait) });
+    }
 
     const delivered = await notify(signal);
     if (delivered.error) return fail(delivered.status, delivered.error);

@@ -23,25 +23,31 @@ export function createLimits() {
   let visitors = new Map<string, Visitor>();
 
   return {
-    /** Returns seconds to wait, or 0 after counting the request as accepted. */
-    take(ip: string, nowMs: number): number {
+    /**
+     * Counts the request as accepted unless it must wait. `solvable` means only this visitor's
+     * limits stand in the way, so a passed human check can lift them. Global limits always hold.
+     */
+    take(ip: string, nowMs: number, passedCheck = false): { wait: number; solvable: boolean } {
       if (utcDay(nowMs) !== day) {
         day = utcDay(nowMs);
         globalCount = 0;
         visitors = new Map();
       }
       const seen = visitors.get(ip);
-      const wait = Math.max(
+      const visitorWait = Math.max(
         seen ? Math.ceil(IP_COOLDOWN_S - (nowMs - seen.lastAt) / 1000) : 0,
         seen && seen.count >= IP_DAILY ? toNextDay(nowMs) : 0,
+      );
+      const globalWait = Math.max(
         Math.ceil(GLOBAL_COOLDOWN_S - (nowMs - globalLastAt) / 1000),
         globalCount >= GLOBAL_DAILY ? toNextDay(nowMs) : 0,
       );
-      if (wait > 0) return wait;
+      const wait = Math.max(globalWait, passedCheck ? 0 : visitorWait);
+      if (wait > 0) return { wait: Math.max(wait, visitorWait), solvable: globalWait <= 0 };
       visitors.set(ip, { lastAt: nowMs, count: (seen?.count ?? 0) + 1 });
       globalCount += 1;
       globalLastAt = nowMs;
-      return 0;
+      return { wait: 0, solvable: false };
     },
   };
 }

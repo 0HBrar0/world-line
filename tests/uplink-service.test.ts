@@ -144,6 +144,60 @@ describe('POST /api/uplink', () => {
   });
 });
 
+describe('human check', () => {
+  const verdict = (success: boolean) => (url: unknown) => Promise.resolve(new Response(String(url).includes('siteverify') ? JSON.stringify({ success }) : '{}'));
+
+  beforeEach(async () => {
+    await new Promise((done) => server.close(done));
+    await start({ turnstileSecret: 'secret' });
+  });
+
+  it('offers a check to a visitor over their limit, without calling Cloudflare', async () => {
+    ntfy.mockImplementation(verdict(true));
+    await post(ping);
+    clock += 10_000;
+    const res = await post(ping);
+    expect(res.status).toBe(429);
+    expect(await res.json()).toEqual({ success: false, error: 'RATE_LIMITED', retryAfter: 50, challenge: true });
+    expect(ntfy).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets a visitor through once the check passes', async () => {
+    ntfy.mockImplementation(verdict(true));
+    await post(ping);
+    clock += 10_000;
+    expect((await post({ ...ping, turnstileToken: 'tok' })).status).toBe(200);
+    const [url, init] = ntfy.mock.calls[1];
+    expect(url).toContain('siteverify');
+    expect(JSON.parse(init?.body as string)).toMatchObject({ secret: 'secret', response: 'tok' });
+    expect(ntfy).toHaveBeenCalledTimes(3);
+  });
+
+  it('keeps refusing when the check fails', async () => {
+    ntfy.mockImplementation(verdict(false));
+    await post(ping);
+    clock += 10_000;
+    const res = await post({ ...ping, turnstileToken: 'bad' });
+    expect(res.status).toBe(429);
+    expect((await res.json()).challenge).toBe(true);
+  });
+
+  it('never lifts the global limits', async () => {
+    ntfy.mockImplementation(verdict(true));
+    await post(ping);
+    clock += 1000;
+    const res = await post({ ...ping, turnstileToken: 'tok' });
+    expect(res.status).toBe(429);
+    expect((await res.json()).challenge).toBeUndefined();
+    expect(ntfy).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a malformed token', async () => {
+    expect((await post({ ...ping, turnstileToken: 5 })).status).toBe(400);
+    expect((await post({ ...ping, turnstileToken: 'x'.repeat(2049) })).status).toBe(400);
+  });
+});
+
 describe('GET /health', () => {
   it('reports status and accepts GET only', async () => {
     const res = await fetch(`${base}/health`);
@@ -157,24 +211,24 @@ describe('limits', () => {
     const limits = createLimits();
     let at = NOON;
     for (let i = 0; i < 5; i += 1) {
-      expect(limits.take('a', at)).toBe(0);
-      expect(limits.take('a', at + 59_000)).toBeGreaterThan(0);
-      if (i === 0) expect(limits.take('a', at + 59_000)).toBe(1);
+      expect(limits.take('a', at).wait).toBe(0);
+      expect(limits.take('a', at + 59_000).wait).toBeGreaterThan(0);
+      if (i === 0) expect(limits.take('a', at + 59_000).wait).toBe(1);
       at += 60_000;
     }
-    expect(limits.take('a', at)).toBe(12 * 3600 - 300);
-    expect(limits.take('a', Date.UTC(2026, 10, 1))).toBe(0);
+    expect(limits.take('a', at).wait).toBe(12 * 3600 - 300);
+    expect(limits.take('a', Date.UTC(2026, 10, 1)).wait).toBe(0);
   });
 
   it('holds everyone to one per ten seconds and thirty a day', () => {
     const limits = createLimits();
     let at = NOON;
-    expect(limits.take('a', at)).toBe(0);
-    expect(limits.take('b', at + 1000)).toBe(9);
+    expect(limits.take('a', at).wait).toBe(0);
+    expect(limits.take('b', at + 1000).wait).toBe(9);
     for (let i = 1; i < 30; i += 1) {
       at += 10_000;
-      expect(limits.take(`ip${i}`, at)).toBe(0);
+      expect(limits.take(`ip${i}`, at).wait).toBe(0);
     }
-    expect(limits.take('new', at + 10_000)).toBe(12 * 3600 - 300);
+    expect(limits.take('new', at + 10_000).wait).toBe(12 * 3600 - 300);
   });
 });

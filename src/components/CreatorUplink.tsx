@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useReduceMotion } from '../app/settings';
 import { useFocusTrap } from './useFocusTrap';
-import { ERRORS, MAX_CONTACT, MAX_MESSAGE, isValid, transmit, type ContactMethod } from './uplink';
+import { CHECK_NEEDED, ERRORS, MAX_CONTACT, MAX_MESSAGE, isValid, loadTurnstile, transmit, type ContactMethod } from './uplink';
 
 const METHODS: Array<{ id: Exclude<ContactMethod, 'none'>; label: string }> = [
   { id: 'email', label: 'Email' },
@@ -17,6 +17,7 @@ export function CreatorUplink() {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+  const [checking, setChecking] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const still = useReduceMotion();
 
@@ -24,9 +25,10 @@ export function CreatorUplink() {
     setOpen(false);
     setSent(false);
     setError('');
+    setChecking(false);
   }, []);
 
-  const send = async (website: string) => {
+  const send = async (website: string, checkToken?: string) => {
     const draft = { message, contactMethod: method, contact, website };
     setError('');
     if (!isValid(draft)) {
@@ -34,8 +36,13 @@ export function CreatorUplink() {
       return;
     }
     setSending(true);
-    const failure = await transmit(draft);
+    setChecking(false);
+    const failure = await transmit(draft, checkToken);
     setSending(false);
+    if (failure === CHECK_NEEDED) {
+      setChecking(true);
+      return;
+    }
     if (failure) {
       setError(failure);
       return;
@@ -68,7 +75,11 @@ export function CreatorUplink() {
           trigger={button}
           onClose={close}
           onSend={send}
-          {...{ message, setMessage, method, setMethod, contact, setContact, sending, sent, error }}
+          onCheckFailed={() => {
+            setChecking(false);
+            setError(ERRORS.rateLimit);
+          }}
+          {...{ message, setMessage, method, setMethod, contact, setContact, sending, sent, error, checking }}
         />
       )}
     </div>
@@ -78,7 +89,8 @@ export function CreatorUplink() {
 interface PanelProps {
   trigger: React.RefObject<HTMLButtonElement | null>;
   onClose: () => void;
-  onSend: (website: string) => void;
+  onSend: (website: string, checkToken?: string) => void;
+  onCheckFailed: () => void;
   message: string;
   setMessage: (value: string) => void;
   method: ContactMethod;
@@ -88,12 +100,50 @@ interface PanelProps {
   sending: boolean;
   sent: boolean;
   error: string;
+  checking: boolean;
 }
 
-function UplinkPanel({ trigger, onClose, onSend, message, setMessage, method, setMethod, contact, setContact, sending, sent, error }: PanelProps) {
+/** The human check. It is usually invisible and sends the signal by itself once it passes. */
+function HumanCheck({ onPass, onFail }: { onPass: (token: string) => void; onFail: () => void }) {
+  const host = useRef<HTMLDivElement>(null);
+  const handlers = useRef({ onPass, onFail });
+  handlers.current = { onPass, onFail };
+
+  useEffect(() => {
+    let gone = false;
+    let remove = () => {};
+    loadTurnstile()
+      .then((turnstile) => {
+        if (gone || !host.current) return;
+        const id = turnstile.render(host.current, {
+          sitekey: import.meta.env.VITE_TURNSTILE_SITE_KEY,
+          theme: 'dark',
+          appearance: 'interaction-only',
+          callback: (token: string) => handlers.current.onPass(token),
+          'error-callback': () => handlers.current.onFail(),
+        });
+        remove = () => turnstile.remove(id);
+      })
+      .catch(() => handlers.current.onFail());
+    return () => {
+      gone = true;
+      remove();
+    };
+  }, []);
+
+  return (
+    <div className="uplink-check">
+      <p>That’s a lot of signals. One quick check, then yours will go through.</p>
+      <div ref={host} />
+    </div>
+  );
+}
+
+function UplinkPanel({ trigger, onClose, onSend, onCheckFailed, message, setMessage, method, setMethod, contact, setContact, sending, sent, error, checking }: PanelProps) {
   const panel = useRef<HTMLDivElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const trap = useRef<HTMLInputElement>(null);
+  const supportUrl: string | undefined = import.meta.env.VITE_SUPPORT_URL;
   useFocusTrap(panel, onClose);
 
   useEffect(() => {
@@ -112,7 +162,7 @@ function UplinkPanel({ trigger, onClose, onSend, message, setMessage, method, se
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!sending) onSend(trap.current?.value ?? '');
+    if (!sending && !checking) onSend(trap.current?.value ?? '');
   };
 
   return (
@@ -165,7 +215,8 @@ function UplinkPanel({ trigger, onClose, onSend, message, setMessage, method, se
             <input ref={trap} type="text" name="website" tabIndex={-1} autoComplete="off" defaultValue="" aria-hidden="true" />
           </div>
 
-          <button type="submit" className="uplink-send" disabled={sending}>
+          {checking && <HumanCheck onPass={(token) => onSend(trap.current?.value ?? '', token)} onFail={onCheckFailed} />}
+          <button type="submit" className="uplink-send" disabled={sending || checking}>
             {sending ? 'TRANSMITTING...' : 'TRANSMIT SIGNAL'}
           </button>
           <p role="alert" className="uplink-error">{error}</p>
@@ -173,6 +224,11 @@ function UplinkPanel({ trigger, onClose, onSend, message, setMessage, method, se
             Your message and any contact information you provide will be sent to the website creator through a notification service. Contact information is optional and will only be used to respond to your message.
           </small>
         </form>
+      )}
+      {supportUrl && (
+        <a className="uplink-support" href={supportUrl} target="_blank" rel="noopener noreferrer">
+          Support World Line
+        </a>
       )}
     </div>
   );

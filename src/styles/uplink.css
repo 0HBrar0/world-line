@@ -50,6 +50,9 @@
 .uplink-sent strong { display: block; margin: 8px 0 4px; color: #ffc98f; font: 500 1rem var(--font-mono); letter-spacing: 0.06em; }
 .uplink-privacy { margin-top: 10px !important; }
 .uplink-trap { display: none; }
+.uplink-check { margin-top: 12px; }
+.uplink-support { display: block; margin-top: 12px; color: #ffc98f; font-size: 0.82rem; text-align: center; text-underline-offset: 3px; }
+.uplink-support:focus-visible { outline: 2px solid var(--nixie); outline-offset: 2px; }
 
 .is-still .uplink-button::after { display: none; }
 .is-still .uplink-button, .is-still .uplink-label { transition: none; }
