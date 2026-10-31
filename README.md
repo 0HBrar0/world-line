@@ -2,7 +2,7 @@
 
 **Live site:** https://0hbrar0.github.io/world-line/
 
-An animated, interactive, spoiler-safe explainer of the Steins;Gate and Steins;Gate 0 story and time-travel mechanics, for first-time viewers. It is a static site with no backend and no runtime network requests. Every story fact comes from `data/canon.json` and shows a confidence badge that opens its sources. Unofficial fan project: no official art, screenshots, logos, music or script text.
+An animated, interactive, spoiler-safe explainer of the Steins;Gate and Steins;Gate 0 story and time-travel mechanics, for first-time viewers. It is a static site with no runtime network requests, except one: Creator Uplink, which contacts its small service in `uplink-service/` only when a visitor presses send. Set `VITE_UPLINK_URL` at build time to that service's address; the service reads `NTFY_BASE_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` and `ALLOWED_ORIGINS` from Railway and runs with `npm start` (root directory `uplink-service`, one instance). Every story fact comes from `data/canon.json` and shows a confidence badge that opens its sources. Unofficial fan project: no official art, screenshots, logos, music or script text.
 
 **Screens:** world-line map, Follow the story (guided playback), six mechanic explainers, Compare, Glossary, Characters, S;G 0, Endings, Works, Disputes, About.
 

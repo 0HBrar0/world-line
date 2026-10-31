@@ -3,6 +3,7 @@ import { MotionConfig } from 'framer-motion';
 import { useRoute } from './router';
 import { SettingsProvider, useReduceMotion, useSettings } from './settings';
 import { ConfidenceLegend } from '../components/Badge';
+import { CreatorUplink } from '../components/CreatorUplink';
 import { DeviceNotice } from '../components/DeviceNotice';
 import { SourceDrawerProvider } from '../components/drawer';
 import { ToastProvider } from '../components/toast';
@@ -119,6 +120,7 @@ function Shell() {
         {readout ? `World line now ${readout}` : ''}
       </div>
       {renderRoute(name, route.path.slice(1))}
+      <CreatorUplink />
       <DeviceNotice />
     </MotionConfig>
   );
