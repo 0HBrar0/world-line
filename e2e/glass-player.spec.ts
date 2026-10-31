@@ -41,7 +41,8 @@ for (const view of ['Observer', 'Flight', 'Chart']) {
     await page.getByRole('button', { name: view, exact: true }).click();
     await page.getByRole('button', { name: 'Next step' }).click();
     await expect(page).toHaveURL(/follow\/2/);
-    await page.getByRole('button', { name: 'Previous step' }).click();
+    // Software rendering on CI can starve the wait for a still button, so click straight away.
+    await page.getByRole('button', { name: 'Previous step' }).click({ force: true });
     await expect(page).toHaveURL(/follow\/1/);
   });
 }

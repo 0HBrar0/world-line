@@ -238,7 +238,7 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
     if (frames > 10 && useBloom) {
       slow = slow * 0.95 + dt * 0.05;
       // Weak graphics chips drop the glow pass rather than stutter.
-      if (frames > 70 && slow > SLOW_FRAME_MS) {
+      if (frames > 24 && slow > SLOW_FRAME_MS) {
         useBloom = false;
         renderer.setPixelRatio(1);
         resize();
