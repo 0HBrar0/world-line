@@ -1,7 +1,7 @@
 {
   "name": "world-line",
   "private": true,
-  "version": "1.6.0",
+  "version": "1.6.1",
   "license": "MIT",
   "type": "module",
   "description": "World Line: an animated, spoiler-safe explainer of the Steins;Gate and Steins;Gate 0 story and time-travel mechanics.",
