@@ -123,8 +123,11 @@ export function TopBar({ readout }: { readout: string | null }) {
         </a>
         <Nixie value={readout} size="sm" />
         <nav aria-label="Main" className="tabs">
-          {TABS.map((tab) => (
+          {TABS.map((tab, i) => (
             <a key={tab.path} href={href(tab.path)} aria-current={active === tab.path ? 'page' : undefined}>
+              <span className="tab-index" aria-hidden="true">
+                {String(i + 1).padStart(2, '0')}
+              </span>
               {tab.label}
             </a>
           ))}

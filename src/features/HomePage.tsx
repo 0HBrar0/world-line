@@ -71,37 +71,41 @@ export function HomePage() {
   const level = canon.meta.spoilerTiers.find((t) => t.id === tier);
   return (
     <main id="main" className="page home">
-      <section className="hero">
-        <HeroBanner />
-        <h1>One text message to the past can rewrite history.</h1>
-        <p className="lede">
-          <Linked text={dmail.oneLiner} tier={tier} />
-        </p>
-        <div className="row hero-actions">
-          <a className="btn btn-primary" href={href('follow')}>
-            ▶ Follow the story
-          </a>
-          <a className="btn" href={href('map')}>
-            Explore the map
-          </a>
-          <a className="btn" href={href('mechanics')}>
-            How time travel works
-          </a>
-        </div>
-      </section>
+      <div className="home-console">
+        <section className="hero" data-title="Divergence meter">
+          <HeroBanner />
+        </section>
+        <section className="home-brief" data-title="Incoming transmission">
+          <h1>One text message to the past can rewrite history.</h1>
+          <p className="lede">
+            <Linked text={dmail.oneLiner} tier={tier} />
+          </p>
+          <div className="row hero-actions">
+            <a className="btn btn-primary" href={href('follow')}>
+              ▶ Follow the story
+            </a>
+            <a className="btn" href={href('map')}>
+              Explore the map
+            </a>
+            <a className="btn" href={href('mechanics')}>
+              How time travel works
+            </a>
+          </div>
+        </section>
+      </div>
       <section className="home-grid" aria-label="The premise">
-        {PREMISE_ENTRIES.map((id) => {
+        {PREMISE_ENTRIES.map((id, i) => {
           const g = glossaryById(id);
           if (!g || !isVisible(g, tier, undefined)) return null;
           return (
-            <p key={id} className="card">
+            <p key={id} className="card" data-title={`Lab note 0${i + 1}`}>
               {safeText(g.plainLanguage, tier)} <Badge compact target={glossaryTarget(g)} />
             </p>
           );
         })}
       </section>
-      <p className="detail-meta home-level">
-        You are set to “{level?.label}”, which covers: {safeText(level?.covers ?? '', tier)} Change it in the top bar as you watch or read further.
+      <p className="detail-meta home-level" data-title="Spoiler lock">
+        You are set to “{level?.label}”, which covers: {safeText(level?.covers ?? '', tier)} Change it in the console as you watch or read further.
       </p>
       <ConfidenceLegend />
     </main>

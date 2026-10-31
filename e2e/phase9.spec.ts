@@ -81,7 +81,7 @@ test('skip link moves focus without changing the route', async ({ page }) => {
 
 test('media chips land in the URL', async ({ page }) => {
   await page.goto('/#/map');
-  await page.locator('.filters-toggle:visible').click({ timeout: 500 }).catch(() => undefined);
+  await page.locator('.filters-toggle').click();
   await page.getByRole('button', { name: 'Other', exact: true }).click();
   await expect(page).toHaveURL(/m=vn,anime,other/);
 });

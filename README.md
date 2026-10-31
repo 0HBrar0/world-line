@@ -75,6 +75,7 @@ npx tsx scripts/report-tier-leaks.ts                      # lists strings the ti
 
 **Spec differences and known limitations:**
 - The spoiler control is a dropdown, not a segmented control: six long labels do not fit in the top bar.
+- The look is a retro lab terminal. On wide screens the top bar becomes a side console, and Follow the story puts its log beside the map.
 - Media chips, the confidence legend and Reduce motion sit in a Filters popover at every width, not only below 1280 px.
 - The S;G 0 page is split into four tabs rather than one long scroll.
 - Hovering the map fades everything except the hovered world line and its edges.
