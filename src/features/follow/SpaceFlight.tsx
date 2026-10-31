@@ -1,4 +1,5 @@
 import { useEffect, useRef, type PointerEvent as ReactPointerEvent } from 'react';
+import { useSettings } from '../../app/settings';
 import { createFlight, type Flight, type FlightView } from './flight';
 import type { SpaceStop } from './spaceStops';
 
@@ -13,7 +14,10 @@ interface SpaceFlightProps {
 }
 
 export default function SpaceFlight({ stops, index, view, onHover, onPick, onWheel }: SpaceFlightProps) {
+  const { prefs } = useSettings();
   const canvas = useRef<HTMLCanvasElement>(null);
+  const latestPrefs = useRef(prefs);
+  latestPrefs.current = prefs;
   const flight = useRef<Flight | null>(null);
   const pointed = useRef<number | null>(null);
   const latest = useRef(index);
@@ -21,7 +25,7 @@ export default function SpaceFlight({ stops, index, view, onHover, onPick, onWhe
 
   useEffect(() => {
     if (!canvas.current || stops.length === 0) return;
-    const created = createFlight(canvas.current, stops, latest.current, view);
+    const created = createFlight(canvas.current, stops, latest.current, view, latestPrefs.current);
     flight.current = created;
     return () => {
       flight.current = null;
@@ -30,6 +34,7 @@ export default function SpaceFlight({ stops, index, view, onHover, onPick, onWhe
   }, [stops, view]);
 
   useEffect(() => flight.current?.goTo(index), [index]);
+  useEffect(() => flight.current?.configure(prefs), [prefs]);
 
   const point = (e: ReactPointerEvent<HTMLCanvasElement>) => {
     const star = flight.current?.starAt(e.clientX, e.clientY) ?? null;

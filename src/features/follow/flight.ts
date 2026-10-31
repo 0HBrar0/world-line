@@ -5,6 +5,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { createCosmos } from './cosmos';
 import { createMarkers } from './markers';
+import type { Prefs } from '../../app/settings';
 import type { SpaceStop } from './spaceStops';
 
 const SPACING = 26;
@@ -12,6 +13,7 @@ const BASE_FOV = 58;
 // Average frame times that step quality down: first the light rays and sharpness, then the glow.
 const SLOW_FRAME_MS = [26, 45];
 const PICK_PX = 26;
+const SLEEVE_OPACITY = 0.82;
 // The entity's view: its neck stays put and only the head turns.
 const ENTITY_SCALE = 7;
 const ENTITY_FOV = 42;
@@ -100,12 +102,14 @@ export interface Flight {
   starAt: (clientX: number, clientY: number) => number | null;
   /** Highlights one star, or none. */
   hover: (index: number | null) => void;
+  /** Applies Settings changes to the running scene. */
+  configure: (prefs: Prefs) => void;
   dispose: () => void;
 }
 
 export type FlightView = 'entity' | 'flight';
 
-export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], startIndex: number, view: FlightView): Flight {
+export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], startIndex: number, view: FlightView, startPrefs: Prefs): Flight {
   const random = seeded(2010);
   const entity = view === 'entity';
   const scale = entity ? ENTITY_SCALE : 1;
@@ -169,7 +173,33 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
   const tube = new THREE.TubeGeometry(curve, segments, entity ? 1.1 : 0.03, 6, false);
   const ahead = new THREE.Mesh(tube, new THREE.MeshBasicMaterial({ color: '#46506e', ...additive }));
   const trail = new THREE.Mesh(tube.clone(), new THREE.MeshBasicMaterial({ color: entity ? '#ff9a3c' : '#a8622a', ...additive }));
-  scene.add(ahead, trail);
+  // A dark sleeve under the line: added light cannot show on a white sun, so the line needs something to sit on.
+  // It fades out with distance from the sun on screen, so the rest of the line stays clean.
+  const sleeve = new THREE.Mesh(
+    new THREE.TubeGeometry(curve, segments, entity ? 3 : 0.09, 6, false),
+    new THREE.ShaderMaterial({
+      transparent: true,
+      depthWrite: false,
+      uniforms: { sun: { value: cosmos.sunAt } },
+      vertexShader: /* glsl */ `
+        uniform vec3 sun; varying float vGap;
+        void main() {
+          vec4 here = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          vec4 star = projectionMatrix * viewMatrix * vec4(sun, 1.0);
+          vec2 apart = here.xy / here.w - star.xy / star.w;
+          apart.x *= projectionMatrix[1][1] / projectionMatrix[0][0];
+          vGap = star.w > 0.0 ? length(apart) : 9.0;
+          gl_Position = here;
+        }`,
+      fragmentShader: /* glsl */ `
+        varying float vGap;
+        void main() { gl_FragColor = vec4(0.015, 0.018, 0.035, ${SLEEVE_OPACITY} * (1.0 - smoothstep(0.25, 0.55, vGap))); }`,
+    }),
+  );
+  sleeve.renderOrder = 1;
+  ahead.renderOrder = 2;
+  trail.renderOrder = 2;
+  scene.add(sleeve, ahead, trail);
   const trailIndexCount = trail.geometry.index!.count;
 
   const makeSprite = (color: string, size: number) => {
@@ -194,7 +224,9 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
   composer.addPass(bloom);
   composer.addPass(cosmos.rays);
   composer.addPass(new OutputPass());
-  let useBloom = true;
+  let prefs = startPrefs;
+  // Quality steps taken on a slow machine: 1 drops the rays and sharpness, 2 drops the glow too.
+  let dropped = 0;
 
   const resize = () => {
     const { clientWidth: w, clientHeight: h } = canvas.parentElement ?? canvas;
@@ -207,7 +239,16 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
     else camera.clearViewOffset();
     camera.updateProjectionMatrix();
   };
-  resize();
+  const applyQuality = () => {
+    const low = prefs.quality === 'low' || dropped > 0;
+    cosmos.rays.enabled = prefs.lightRays && !low;
+    const ratio = low ? 1 : Math.min(window.devicePixelRatio, prefs.quality === 'high' ? 2 : 1.5);
+    renderer.setPixelRatio(ratio);
+    composer.setPixelRatio(ratio);
+    resize();
+  };
+  applyQuality();
+  cosmos.configure(prefs);
   const observer = new ResizeObserver(resize);
   if (canvas.parentElement) observer.observe(canvas.parentElement);
 
@@ -244,17 +285,13 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
     const dt = now - last;
     last = now;
     frames += 1;
-    if (frames > 10 && useBloom) {
+    if (frames > 10 && prefs.quality === 'auto' && dropped < SLOW_FRAME_MS.length) {
       slow = slow * 0.95 + dt * 0.05;
-      if (frames > 24 && cosmos.rays.enabled && slow > SLOW_FRAME_MS[0]) {
-        cosmos.rays.enabled = false;
-        renderer.setPixelRatio(1);
-        composer.setPixelRatio(1);
-        resize();
+      if (frames > 24 && slow > SLOW_FRAME_MS[dropped]) {
+        dropped += 1;
+        applyQuality();
         frames = 10;
         slow = 0;
-      } else if (frames > 24 && slow > SLOW_FRAME_MS[1]) {
-        useBloom = false;
       }
     }
 
@@ -312,8 +349,8 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
 
     markers.update(now, dt, index, hovered);
 
-    cosmos.update(now, camera);
-    if (useBloom) composer.render();
+    cosmos.update(now, dt, camera);
+    if (dropped < SLOW_FRAME_MS.length) composer.render();
     else renderer.render(scene, camera);
   };
   frame = requestAnimationFrame(render);
@@ -338,6 +375,13 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
     },
     hover(next) {
       hovered = next;
+    },
+    configure(next) {
+      const qualityChanged = next.quality !== prefs.quality || next.lightRays !== prefs.lightRays;
+      if (next.quality !== prefs.quality) dropped = 0;
+      prefs = next;
+      if (qualityChanged) applyQuality();
+      cosmos.configure(next);
     },
     goTo(next) {
       if (next === index) return;

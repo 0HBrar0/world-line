@@ -6,6 +6,7 @@ interface GlassDockProps {
   className?: string;
   label: string;
   playing: boolean;
+  playDisabled?: boolean;
   canBack: boolean;
   canNext: boolean;
   pace: number;
@@ -31,7 +32,7 @@ const PlayIcon = ({ playing }: { playing: boolean }) => (
 );
 
 /** Floating glass player controls, shared by the map and every Follow view. */
-export function GlassDock({ className, label, playing, canBack, canNext, pace, onTogglePlay, onBack, onNext, onPace, onStart, onEnd, children }: GlassDockProps) {
+export function GlassDock({ className, label, playing, playDisabled, canBack, canNext, pace, onTogglePlay, onBack, onNext, onPace, onStart, onEnd, children }: GlassDockProps) {
   return (
     <div className={className ? `glass-dock ${className}` : 'glass-dock'} role="group" aria-label={label}>
       {onStart && (
@@ -42,7 +43,7 @@ export function GlassDock({ className, label, playing, canBack, canNext, pace, o
       <button type="button" className="glass-btn" aria-label="Previous step" disabled={!canBack} onClick={onBack}>
         <Arrow flip />
       </button>
-      <button type="button" className="glass-btn glass-play" aria-label={playing ? 'Pause' : 'Play'} onClick={onTogglePlay}>
+      <button type="button" className="glass-btn glass-play" aria-label={playing ? 'Pause' : 'Play'} disabled={playDisabled} onClick={onTogglePlay}>
         <PlayIcon playing={playing} />
       </button>
       <button type="button" className="glass-btn" aria-label="Next step" disabled={!canNext} onClick={onNext}>

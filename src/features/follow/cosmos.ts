@@ -1,12 +1,18 @@
 import * as THREE from 'three';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import type { Prefs } from '../../app/settings';
+import { createOrbiters } from './orbiters';
 
 // The world around the line. Everything here is decoration, built from numbers only, so it cannot carry story content.
 // True path tracing is far too slow to stay smooth, so its look is computed directly: sunlight, terminators,
 // ring and planet shadows are solved per pixel with ray tests, and the nebula is painted once at start.
 
 const ADDITIVE = { transparent: true, depthWrite: false, blending: THREE.AdditiveBlending } as const;
-const RAY_LUMA_FLOOR = 2.2;
+const RAY_LUMA_FLOOR = 1.6;
+// The entity's sun lights the scene from the galaxy's heart but is drawn twice as far away at twice the size,
+// so it looks the same and every story point passes in front of it.
+const SUN_DRAWN_BEHIND = 2;
+const EYE = new THREE.Vector3(0, 430, 1050);
 
 const NOISE = /* glsl */ `
   float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
@@ -62,7 +68,7 @@ function paintSky(renderer: THREE.WebGLRenderer) {
 interface PlanetSpec {
   at: THREE.Vector3;
   radius: number;
-  kind: 'gas' | 'rock' | 'ice';
+  kind: 'gas' | 'rock' | 'ice' | 'earth';
   colors: [string, string, string];
   air: string;
   ring?: boolean;
@@ -85,6 +91,7 @@ function makePlanet(spec: PlanetSpec, sun: THREE.Vector3, seed: number) {
       spin: { value: 0 },
       gas: { value: spec.kind === 'gas' ? 1 : 0 },
       ice: { value: spec.kind === 'ice' ? 1 : 0 },
+      earth: { value: spec.kind === 'earth' ? 1 : 0 },
       low: { value: new THREE.Color(spec.colors[0]) },
       mid: { value: new THREE.Color(spec.colors[1]) },
       high: { value: new THREE.Color(spec.colors[2]) },
@@ -102,7 +109,7 @@ function makePlanet(spec: PlanetSpec, sun: THREE.Vector3, seed: number) {
       }`,
     fragmentShader: /* glsl */ `
       uniform vec3 sun, center, low, mid, high, air, ringNormal;
-      uniform float radius, seed, spin, gas, ice, ringInner, ringOuter;
+      uniform float radius, seed, spin, gas, ice, earth, ringInner, ringOuter;
       varying vec3 vLocal; varying vec3 vWorld; varying vec3 vNormal2;
       ${NOISE}
       void main() {
@@ -116,6 +123,29 @@ function makePlanet(spec: PlanetSpec, sun: THREE.Vector3, seed: number) {
         vec3 albedo = mix(low, mid, smoothstep(0.25, 0.55, h));
         albedo = mix(albedo, high, smoothstep(0.55, 0.8, h));
         if (ice > 0.5) albedo = mix(albedo, vec3(0.92, 0.96, 1.0), smoothstep(0.62, 0.9, abs(p.y) + warp * 0.3));
+
+        // Earth is painted in layers: sea floor, continents, ice caps, then a cloud deck turning on its own.
+        float land = 0.0; float cloud = 0.0; float cities = 0.0;
+        if (earth > 0.5) {
+          float shape = fbm(p * 1.9 + seed, 7) + (warp - 0.5) * 0.3;
+          land = smoothstep(0.495, 0.515, shape);
+          float depth = smoothstep(0.34, 0.495, shape);
+          vec3 sea = mix(vec3(0.012, 0.05, 0.16), vec3(0.03, 0.2, 0.34), depth * depth);
+          float dry = smoothstep(0.42, 0.62, fbm(p * 4.3 + seed + 3.0, 5)) * (1.0 - smoothstep(0.3, 0.62, abs(p.y)));
+          vec3 ground = mix(vec3(0.07, 0.2, 0.08), vec3(0.2, 0.3, 0.12), fbm(p * 11.0 + seed, 4));
+          ground = mix(ground, vec3(0.58, 0.44, 0.25), dry);
+          ground = mix(ground, vec3(0.34, 0.31, 0.3), smoothstep(0.56, 0.68, shape));
+          albedo = mix(sea, ground, land);
+          float poles = smoothstep(0.76, 0.88, abs(p.y) + (warp - 0.5) * 0.24);
+          albedo = mix(albedo, vec3(0.9, 0.94, 0.98), poles);
+          float drift = spin * 1.6 + 1.0;
+          vec3 q = vec3(cos(drift) * n.x + sin(drift) * n.z, n.y * 1.4, -sin(drift) * n.x + cos(drift) * n.z);
+          float swirl = fbm(q * 2.3 + seed + 5.0, 3);
+          cloud = smoothstep(0.46, 0.68, fbm(q * 3.6 + swirl * 1.6 + seed, 6));
+          albedo = mix(albedo, vec3(0.96), cloud * 0.92);
+          cities = land * (1.0 - poles) * (1.0 - cloud) * smoothstep(0.66, 0.8, noise(p * 46.0)) * smoothstep(0.4, 0.6, noise(p * 9.0 + 2.0));
+          h = mix(0.0, 1.0, max(land, cloud));
+        }
 
         vec3 N = normalize(vNormal2);
         vec3 L = normalize(sun - vWorld);
@@ -138,6 +168,7 @@ function makePlanet(spec: PlanetSpec, sun: THREE.Vector3, seed: number) {
         vec3 bounce = albedo * air * 0.035 * (0.5 + 0.5 * dot(N, -L));
         vec3 color = albedo * sunlit * vec3(1.9, 1.75, 1.55) + bounce + shine * sunlit * vec3(1.0, 0.95, 0.85);
         color += air * rim * (0.08 + 1.6 * smoothstep(-0.18, 0.5, dot(N, L)));
+        color += vec3(1.0, 0.72, 0.36) * cities * 1.4 * (1.0 - smoothstep(-0.12, 0.1, dot(N, L)));
         gl_FragColor = vec4(color, 1.0);
         ${FINISH}
       }`,
@@ -258,7 +289,10 @@ const rayShader = {
 
 export interface Cosmos {
   rays: ShaderPass;
-  update: (now: number, camera: THREE.Camera) => void;
+  /** Where the sun is drawn. */
+  sunAt: THREE.Vector3;
+  update: (now: number, dt: number, camera: THREE.Camera) => void;
+  configure: (prefs: Prefs) => void;
   dispose: () => void;
 }
 
@@ -273,20 +307,24 @@ export function createCosmos(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
   glow.width = glow.height = 256;
   const paint = glow.getContext('2d')!;
   const fade = paint.createRadialGradient(128, 128, 0, 128, 128, 128);
-  [[0, 'rgba(255,255,255,1)'], [0.1, 'rgba(255,255,255,0.8)'], [0.3, 'rgba(255,255,255,0.18)'], [1, 'rgba(255,255,255,0)']].forEach(([at, color]) => fade.addColorStop(at as number, color as string));
+  [[0, 'rgba(255,255,255,1)'], [0.06, 'rgba(255,255,255,0.7)'], [0.22, 'rgba(255,255,255,0.1)'], [1, 'rgba(255,255,255,0)']].forEach(([at, color]) => fade.addColorStop(at as number, color as string));
   paint.fillStyle = fade;
   paint.fillRect(0, 0, 256, 256);
   const glowTexture = new THREE.CanvasTexture(glow);
 
   const star = new THREE.Group();
-  star.position.copy(sun);
-  const size = entity ? 240 : 380;
+  if (entity) star.position.lerpVectors(EYE, sun, SUN_DRAWN_BEHIND);
+  else star.position.copy(sun);
+  const size = entity ? 200 * SUN_DRAWN_BEHIND : 380;
+  const flares: Array<{ material: THREE.SpriteMaterial; tint: THREE.Color }> = [];
   const flare = (x: number, y: number, tint: THREE.Color) => {
-    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture, color: tint, toneMapped: false, ...ADDITIVE }));
+    const material = new THREE.SpriteMaterial({ map: glowTexture, color: tint, toneMapped: false, ...ADDITIVE });
+    const sprite = new THREE.Sprite(material);
     sprite.scale.set(x, y, 1);
     star.add(sprite);
+    flares.push({ material, tint: tint.clone() });
   };
-  flare(size, size, new THREE.Color(5, 4, 2.8));
+  flare(size, size, new THREE.Color(2.6, 2.1, 1.5));
   flare(size * 3.2, size * 3.2, new THREE.Color(0.16, 0.1, 0.05));
   flare(size * 6, size * 0.06, new THREE.Color(0.7, 0.6, 0.65));
   scene.add(star);
@@ -298,7 +336,7 @@ export function createCosmos(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
   const specs: PlanetSpec[] = entity
     ? [
         { at: new THREE.Vector3(-640, 110, -620), radius: 92, kind: 'gas', colors: ['#9a5a34', '#d8a468', '#f0dcb4'], air: '#ffb070', ring: true },
-        { at: new THREE.Vector3(660, -70, -560), radius: 58, kind: 'rock', colors: ['#1c4a6a', '#2e7a5a', '#c9b48a'], air: '#58a8ff' },
+        { at: new THREE.Vector3(660, -70, -560), radius: 58, kind: 'earth', colors: ['#1c4a6a', '#2e7a5a', '#c9b48a'], air: '#58a8ff' },
         { at: new THREE.Vector3(1060, 260, -900), radius: 128, kind: 'ice', colors: ['#3a5a8a', '#7fb0d0', '#d8ecf4'], air: '#7fd0ff' },
         { at: new THREE.Vector3(-1060, -30, -240), radius: 74, kind: 'rock', colors: ['#5a2a24', '#a4502e', '#d89a68'], air: '#ff8050' },
         { at: new THREE.Vector3(130, 250, -1020), radius: 44, kind: 'gas', colors: ['#3e2a6a', '#8050b0', '#d0a8e0'], air: '#b080ff' },
@@ -308,7 +346,7 @@ export function createCosmos(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
         const side = k % 2 ? 1 : -1;
         const palette: Array<Pick<PlanetSpec, 'kind' | 'colors' | 'air'>> = [
           { kind: 'gas', colors: ['#9a5a34', '#d8a468', '#f0dcb4'], air: '#ffb070' },
-          { kind: 'rock', colors: ['#1c4a6a', '#2e7a5a', '#c9b48a'], air: '#58a8ff' },
+          { kind: 'earth', colors: ['#1c4a6a', '#2e7a5a', '#c9b48a'], air: '#58a8ff' },
           { kind: 'ice', colors: ['#3a5a8a', '#7fb0d0', '#d8ecf4'], air: '#7fd0ff' },
           { kind: 'rock', colors: ['#5a2a24', '#a4502e', '#d89a68'], air: '#ff8050' },
           { kind: 'gas', colors: ['#3e2a6a', '#8050b0', '#d0a8e0'], air: '#b080ff' },
@@ -317,7 +355,8 @@ export function createCosmos(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
           at: new THREE.Vector3(side * (radius * (k % 3 === 0 ? 2.6 : 1) + 64 + random() * 120), -30 + random() * 90, end.z * ((k + 0.7) / 7) - 40),
           radius,
           ring: k % 3 === 0,
-          ...palette[k % palette.length],
+          // One Earth only: the second time round the palette takes the next world along.
+          ...palette[k === 6 ? 2 : k % palette.length],
         };
       });
   const worlds = specs.map((spec, i) => makePlanet(spec, sun, i * 0.37 + 0.2));
@@ -326,12 +365,17 @@ export function createCosmos(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
   const rocks = asteroidField(entity, points, random);
   scene.add(rocks);
 
+  const home = specs.find((spec) => spec.kind === 'earth');
+  const orbiters = home ? createOrbiters(scene, home.at, home.radius, random) : null;
+
   const rays = new ShaderPass(rayShader);
   const probe = new THREE.Vector3();
+  let sunBrightness = 1;
 
   return {
     rays,
-    update(now, camera) {
+    sunAt: star.position,
+    update(now, dt, camera) {
       worlds.forEach((w, i) => {
         w.surface.uniforms.spin.value = now * 0.00004 * (i % 2 ? 1 : -0.7);
       });
@@ -341,7 +385,13 @@ export function createCosmos(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
       const y = probe.y * 0.5 + 0.5;
       const away = Math.max(Math.abs(x - 0.5), Math.abs(y - 0.5));
       rays.uniforms.sunAt.value.set(x, y);
-      rays.uniforms.strength.value = probe.z < 1 ? (entity ? 0.7 : 1.1) * (1 - THREE.MathUtils.smoothstep(away, 0.5, 1.15)) : 0;
+      rays.uniforms.strength.value = probe.z < 1 ? sunBrightness * (entity ? 0.7 : 1.1) * (1 - THREE.MathUtils.smoothstep(away, 0.5, 1.15)) : 0;
+      orbiters?.update(now, dt, camera);
+    },
+    configure(prefs) {
+      sunBrightness = prefs.sunBrightness;
+      flares.forEach(({ material, tint }) => material.color.copy(tint).multiplyScalar(sunBrightness));
+      orbiters?.configure(prefs);
     },
     dispose() {
       sky.dispose();

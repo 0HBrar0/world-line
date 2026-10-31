@@ -206,7 +206,6 @@ a.tile:hover { border-color: var(--nixie); }
 .flip-inner { display: block; }
 .flip-tag { display: block; color: var(--nixie); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
 @media (max-width: 767px) {
-  .stage { aspect-ratio: 4 / 5; }
   .travel-grid { grid-template-columns: 1fr; }
   .step-dot { width: 44px; height: 44px; }
   .player-controls .btn { min-width: 44px; min-height: 44px; }

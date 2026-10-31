@@ -7,9 +7,28 @@ import { Threads } from '../../components/Threads';
 import { canon } from '../../data/load';
 import { isVisible, mechanicById } from '../../data/selectors';
 import { safeText } from '../../data/tierGuard';
-import { MechanicExtras, MechanicPlayer } from './MechanicPlayer';
+import type { Mechanic, Tier } from '../../data/schema';
+import { MechanicExtras, MechanicPlayer, stepIsOpen } from './MechanicPlayer';
+import { STAGE, StageDefs, StillScene } from './scene';
+import { PREVIEW_STEP, STORYBOARDS } from './storyboards';
 
 const ART_COLORS = ['#ff8a1f', '#cc79a7', '#7aa7ff', '#e6c84a', '#3ecf8e', '#56b4e9'];
+
+/** The tile shows the mechanic's clearest frame, held still, or plain line art if that step is locked. */
+function TileArt({ mechanic, tier, seed }: { mechanic: Mechanic; tier: Tier; seed: number }) {
+  const at = PREVIEW_STEP[mechanic.id] ?? 0;
+  const Frame = STORYBOARDS[mechanic.id]?.[at];
+  const step = mechanic.steps[at];
+  if (!Frame || !step || !stepIsOpen(step, mechanic, tier)) return <Threads className="mechanic-art" color={ART_COLORS[seed % ART_COLORS.length]} seed={seed * 3 + 1} />;
+  return (
+    <svg className="mechanic-art mech-svg" viewBox={`0 0 ${STAGE.width} ${STAGE.height}`} aria-hidden="true">
+      <StageDefs />
+      <StillScene.Provider value>
+        <Frame />
+      </StillScene.Provider>
+    </svg>
+  );
+}
 
 export function MechanicsIndex() {
   const { tier } = useSettings();
@@ -21,7 +40,7 @@ export function MechanicsIndex() {
           isVisible(m, tier) ? (
             <li key={m.id}>
               <a className="tile mechanic-tile" href={href(`mechanics/${m.id}`)}>
-                <Threads className="mechanic-art" color={ART_COLORS[i % ART_COLORS.length]} seed={i * 3 + 1} />
+                <TileArt mechanic={m} tier={tier} seed={i} />
                 <h2>{safeText(m.title, tier)}</h2>
                 <p>{safeText(m.oneLiner, tier)}</p>
               </a>
@@ -52,8 +71,8 @@ export function MechanicPage({ id }: { id: string }) {
 
   if (!mechanic || !open) return null;
   return (
-    <main id="main" className="page">
-      <p>
+    <main id="main" className="page mechanic-page">
+      <p className="mechanic-back">
         <a href={href('mechanics')}>All mechanics</a>
       </p>
       <h1>{safeText(mechanic.title, tier)}</h1>

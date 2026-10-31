@@ -14,7 +14,33 @@ export function tierIndex(tier: TierId): number {
   return TIER_ORDER.indexOf(tier);
 }
 
+/** Personal options from the Settings panel. */
+export interface Prefs {
+  satellites: boolean;
+  drifters: boolean;
+  driftPace: 'rare' | 'normal' | 'lots';
+  lightRays: boolean;
+  sunBrightness: number;
+  quality: 'auto' | 'high' | 'low';
+  autoplayMechanics: boolean;
+  largeText: boolean;
+}
+
+export const DEFAULT_PREFS: Prefs = {
+  satellites: true,
+  drifters: true,
+  driftPace: 'normal',
+  lightRays: true,
+  sunBrightness: 1,
+  quality: 'auto',
+  autoplayMechanics: true,
+  largeText: false,
+};
+
 interface Settings {
+  prefs: Prefs;
+  setPref: <K extends keyof Prefs>(key: K, value: Prefs[K]) => void;
+  resetPrefs: () => void;
   tier: TierId;
   setTier: (tier: TierId) => void;
   media: MediaKey[];
@@ -53,6 +79,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [tier, setTierState] = useState<TierId>(initialTier);
   const [media, setMedia] = useState<MediaKey[]>(() => initialMedia(initialTier()));
   const [motionPref, setMotionPrefState] = useState<MotionPref>(() => readStore<MotionPref>('wl.motion', 'system'));
+  const [prefs, setPrefs] = useState<Prefs>(() => ({ ...DEFAULT_PREFS, ...readStore<Partial<Prefs>>('wl.prefs', {}) }));
   const [legendOpen, setLegendOpen] = useState(false);
   const [focusedLine, setFocusedLine] = useState<string | null>(null);
   const [peeks, setPeeks] = useState<Set<string>>(() => new Set());
@@ -88,11 +115,28 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     writeStore('wl.motion', pref);
   }, []);
 
+  const setPref = useCallback(<K extends keyof Prefs>(key: K, value: Prefs[K]) => {
+    setPrefs((current) => {
+      const updated = { ...current, [key]: value };
+      writeStore('wl.prefs', updated);
+      return updated;
+    });
+  }, []);
+
+  const resetPrefs = useCallback(() => {
+    setPrefs(DEFAULT_PREFS);
+    writeStore('wl.prefs', DEFAULT_PREFS);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.dataset.text = prefs.largeText ? 'large' : 'normal';
+  }, [prefs.largeText]);
+
   const peek = useCallback((key: string) => setPeeks((p) => new Set(p).add(key)), []);
 
   const value = useMemo(
-    () => ({ tier, setTier, media, toggleMedia, motionPref, setMotionPref, legendOpen, setLegendOpen, focusedLine, setFocusedLine, peeks, peek }),
-    [tier, setTier, media, toggleMedia, motionPref, setMotionPref, legendOpen, focusedLine, peeks, peek],
+    () => ({ prefs, setPref, resetPrefs, tier, setTier, media, toggleMedia, motionPref, setMotionPref, legendOpen, setLegendOpen, focusedLine, setFocusedLine, peeks, peek }),
+    [prefs, setPref, resetPrefs, tier, setTier, media, toggleMedia, motionPref, setMotionPref, legendOpen, focusedLine, peeks, peek],
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;

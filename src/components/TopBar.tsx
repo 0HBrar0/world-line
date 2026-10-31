@@ -3,6 +3,7 @@ import { href, useRoute } from '../app/router';
 import { MEDIA_KEYS, tierIndex, useSettings, type MediaKey, type TierId } from '../app/settings';
 import canonMeta from '../data/meta';
 import { Nixie } from './Nixie';
+import { SettingsPanel } from './SettingsPanel';
 import { useFocusTrap } from './useFocusTrap';
 
 const TABS: Array<{ path: string; label: string }> = [
@@ -97,15 +98,15 @@ export function MediaChips() {
 export function TopBar({ readout }: { readout: string | null }) {
   const route = useRoute();
   const { legendOpen, setLegendOpen, motionPref, setMotionPref } = useSettings();
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [panel, setPanel] = useState<'filters' | 'settings' | null>(null);
   const controls = useRef<HTMLDivElement>(null);
   const active = route.path[0] ?? '';
   const reduceOn = motionPref === 'reduce';
 
   useEffect(() => {
-    if (!filtersOpen) return;
+    if (!panel) return;
     const close = (e: Event) => {
-      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !controls.current?.contains(e.target as Node)) setFiltersOpen(false);
+      if (e instanceof KeyboardEvent ? e.key === 'Escape' : !controls.current?.contains(e.target as Node)) setPanel(null);
     };
     document.addEventListener('pointerdown', close);
     document.addEventListener('keydown', close);
@@ -113,7 +114,7 @@ export function TopBar({ readout }: { readout: string | null }) {
       document.removeEventListener('pointerdown', close);
       document.removeEventListener('keydown', close);
     };
-  }, [filtersOpen]);
+  }, [panel]);
 
   return (
     <header className="topbar">
@@ -135,10 +136,14 @@ export function TopBar({ readout }: { readout: string | null }) {
       </div>
       <div ref={controls} className="topbar-row topbar-controls">
         <TierControl />
-        <button type="button" className="btn filters-toggle" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((open) => !open)}>
+        <button type="button" className="btn filters-toggle" aria-expanded={panel === 'filters'} onClick={() => setPanel((open) => (open === 'filters' ? null : 'filters'))}>
           Filters
         </button>
-        <div className={filtersOpen ? 'filters filters-open' : 'filters'}>
+        <button type="button" className="btn settings-toggle" aria-expanded={panel === 'settings'} onClick={() => setPanel((open) => (open === 'settings' ? null : 'settings'))}>
+          Settings
+        </button>
+        {panel === 'settings' && <SettingsPanel />}
+        <div className={panel === 'filters' ? 'filters filters-open' : 'filters'}>
           <MediaChips />
           <button type="button" className="btn btn-quiet" aria-pressed={legendOpen} onClick={() => setLegendOpen(!legendOpen)}>
             Confidence legend

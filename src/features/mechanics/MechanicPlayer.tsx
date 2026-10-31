@@ -2,14 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useReduceMotion, useSettings } from '../../app/settings';
 import { Badge } from '../../components/Badge';
+import { GlassDock } from '../../components/GlassDock';
 import type { SourceTarget } from '../../components/drawer';
 import type { Confidence, Mechanic, Tier } from '../../data/schema';
 import { effectiveTier, tierRank } from '../../data/selectors';
 import { isTextSafe, safeText } from '../../data/tierGuard';
-import { FitScene, StageDefs } from './scene';
+import { STAGE, StageDefs } from './scene';
 import { STORYBOARDS } from './storyboards';
 
-const DWELL_MS = 6000;
+// Time to watch a frame play out, plus time to read its caption at an easy pace.
+const WATCH_MS = 4800;
+const READ_MS_PER_CHAR = 45;
 
 type Step = Mechanic['steps'][number];
 
@@ -40,7 +43,7 @@ interface PlayerProps {
 }
 
 export function MechanicPlayer({ mechanic, compact = false }: PlayerProps) {
-  const { tier } = useSettings();
+  const { tier, prefs } = useSettings();
   const reduce = useReduceMotion();
   const steps = mechanic.steps;
   const openFlags = useMemo(() => steps.map((s) => stepIsOpen(s, mechanic, tier)), [steps, mechanic, tier]);
@@ -48,6 +51,7 @@ export function MechanicPlayer({ mechanic, compact = false }: PlayerProps) {
   const [index, setIndex] = useState(first);
   const [playing, setPlaying] = useState(false);
   const [textOnly, setTextOnly] = useState(false);
+  const [pace, setPace] = useState(1);
 
   const nextOpen = useCallback(
     (from: number, dir: 1 | -1) => {
@@ -59,8 +63,8 @@ export function MechanicPlayer({ mechanic, compact = false }: PlayerProps) {
 
   useEffect(() => {
     setIndex(first);
-    setPlaying(!reduce && !compact);
-  }, [mechanic.id, first, reduce, compact]);
+    setPlaying(!reduce && !compact && prefs.autoplayMechanics);
+  }, [mechanic.id, first, reduce, compact, prefs.autoplayMechanics]);
 
   // Autoplay skips locked frames and stops at the last open one.
   useEffect(() => {
@@ -69,9 +73,9 @@ export function MechanicPlayer({ mechanic, compact = false }: PlayerProps) {
       const next = nextOpen(index, 1);
       if (next === null) setPlaying(false);
       else setIndex(next);
-    }, DWELL_MS);
+    }, (WATCH_MS + steps[index].caption.length * READ_MS_PER_CHAR) / pace);
     return () => window.clearTimeout(timer);
-  }, [playing, reduce, textOnly, index, nextOpen]);
+  }, [playing, reduce, textOnly, index, nextOpen, steps, pace]);
 
   const step = steps[index];
   const open = openFlags[index];
@@ -79,71 +83,74 @@ export function MechanicPlayer({ mechanic, compact = false }: PlayerProps) {
   const showList = textOnly || reduce;
 
   return (
-    <section className="player" aria-label={`${safeText(mechanic.title, tier)} player`}>
-      <div className="player-head row">
-        <button type="button" className="btn" aria-pressed={textOnly} onClick={() => setTextOnly((v) => !v)}>
-          Text only
-        </button>
-      </div>
-      {!textOnly && (
-        <div className="stage" aria-hidden="true">
-          {open && Frame ? (
-            <svg viewBox="0 0 640 340" preserveAspectRatio="xMidYMid meet">
-              <StageDefs />
-              <AnimatePresence mode="wait">
-                <motion.g key={index} initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduce ? undefined : { opacity: 0 }} transition={{ duration: reduce ? 0 : 0.18 }}>
-                  <FitScene>
-                    <Frame reduce={reduce} />
-                  </FitScene>
-                </motion.g>
-              </AnimatePresence>
-            </svg>
-          ) : (
-            <div className="stage-locked">
-              <span>🔒 later in the story</span>
-            </div>
-          )}
-        </div>
-      )}
-      <div className="caption-bar">
-        <span className="mono caption-count">
-          {index + 1}/{steps.length}
-        </span>
-        {open ? (
-          <>
-            <p className="caption" data-testid="caption" aria-live={playing ? 'off' : 'polite'}>
-              {step.caption}
-            </p>
-            <Badge target={stepTarget(mechanic, step)} />
-          </>
-        ) : (
-          <p className="caption">🔒 later in the story</p>
+    <section className={compact ? 'player is-compact' : 'player'} aria-label={`${safeText(mechanic.title, tier)} player`}>
+      <div className="player-picture">
+        {!textOnly && (
+          <div className="stage" aria-hidden="true">
+            {open && Frame ? (
+              <svg className="mech-svg" viewBox={`0 0 ${STAGE.width} ${STAGE.height}`} preserveAspectRatio="xMidYMid meet">
+                <StageDefs />
+                <AnimatePresence mode="wait">
+                  <motion.g key={index} initial={reduce ? false : { opacity: 0 }} animate={{ opacity: 1 }} exit={reduce ? undefined : { opacity: 0 }} transition={{ duration: reduce ? 0 : 0.18 }}>
+                    <Frame />
+                  </motion.g>
+                </AnimatePresence>
+              </svg>
+            ) : (
+              <div className="stage-locked">
+                <span>🔒 later in the story</span>
+              </div>
+            )}
+          </div>
         )}
-      </div>
-      <div className="player-controls row">
-        <button type="button" className="btn" aria-label="First step" onClick={() => setIndex(first)}>
-          ⏮
-        </button>
-        <button type="button" className="btn" aria-label="Previous step" disabled={nextOpen(index, -1) === null} onClick={() => setIndex(nextOpen(index, -1) ?? index)}>
-          ◀
-        </button>
-        <button type="button" className="btn" aria-label={playing ? 'Pause' : 'Play'} disabled={reduce || textOnly} onClick={() => setPlaying((p) => !p)}>
-          {playing ? '⏸' : '▶'}
-        </button>
-        <button type="button" className="btn" aria-label="Next step" disabled={nextOpen(index, 1) === null} onClick={() => setIndex(nextOpen(index, 1) ?? index)}>
-          ▶▶
-        </button>
-        <div className="step-dots">
+        <div className="step-thread">
           {steps.map((s, i) => (
             <button
               key={s.order}
               type="button"
-              className={`step-dot${i === index ? ' is-current' : ''}${openFlags[i] ? '' : ' is-locked'}`}
+              className={`step-dot${i === index ? ' is-current' : ''}${i < index ? ' is-past' : ''}${openFlags[i] ? '' : ' is-locked'}`}
               aria-label={openFlags[i] ? `Step ${i + 1}` : `Step ${i + 1}, locked`}
               aria-current={i === index ? 'step' : undefined}
               onClick={() => setIndex(i)}
-            />
+            >
+              <span aria-hidden="true">{i + 1}</span>
+            </button>
           ))}
+        </div>
+      </div>
+      <div className="player-words">
+        <span className="mono caption-count">
+          Step {index + 1} of {steps.length}
+        </span>
+        <div className="caption-bar">
+          {open ? (
+            <>
+              <p className="caption" data-testid="caption" aria-live={playing ? 'off' : 'polite'}>
+                {step.caption}
+              </p>
+              <Badge target={stepTarget(mechanic, step)} />
+            </>
+          ) : (
+            <p className="caption">🔒 later in the story</p>
+          )}
+        </div>
+        <div className="player-controls">
+          <GlassDock
+            className="glass-dock-player"
+            label="Step controls"
+            playing={playing}
+            playDisabled={reduce || textOnly}
+            canBack={nextOpen(index, -1) !== null}
+            canNext={nextOpen(index, 1) !== null}
+            pace={pace}
+            onTogglePlay={() => setPlaying((p) => !p)}
+            onBack={() => setIndex(nextOpen(index, -1) ?? index)}
+            onNext={() => setIndex(nextOpen(index, 1) ?? index)}
+            onPace={setPace}
+          />
+          <button type="button" className="btn btn-quiet" aria-pressed={textOnly} onClick={() => setTextOnly((v) => !v)}>
+            Text only
+          </button>
         </div>
       </div>
       <ol className={showList ? 'step-list' : 'sr-only'} aria-label="All steps as text">
