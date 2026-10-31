@@ -26,6 +26,7 @@ const DAY_MIN = 30;
 const DAY_EVENT = 26;
 const MONTH_SLOT = 64;
 const SEQ_STEP = 46;
+const SEQ_START = 130;
 const EDGE_RUN = 16;
 
 export type RowKind = 'alpha' | 'beta' | 'neutral' | 'steins_gate' | 'sg0' | 'vn_ending' | 'float';
@@ -323,12 +324,12 @@ function calendarPositions(events: StoryEvent[]) {
 
 function seqPositions(events: StoryEvent[]) {
   const ordered = [...events].sort((a, b) => a.seq - b.seq);
-  const positions = new Map(ordered.map((e, i) => [e.id, 30 + i * SEQ_STEP]));
+  const positions = new Map(ordered.map((e, i) => [e.id, SEQ_START + i * SEQ_STEP]));
   const ticks: MapTick[] = ordered
-    .map((_e, i) => ({ x: 30 + i * SEQ_STEP, label: `#${i + 1}`, major: true, i }))
+    .map((_e, i) => ({ x: SEQ_START + i * SEQ_STEP, label: `#${i + 1}`, major: true, i }))
     .filter((t) => t.i % 5 === 0)
     .map(({ x, label, major }) => ({ x, label, major }));
-  return { positions, ticks, brackets: [], breaks: [] as number[], width: 60 + ordered.length * SEQ_STEP };
+  return { positions, ticks, brackets: [], breaks: [] as number[], width: SEQ_START + 30 + ordered.length * SEQ_STEP };
 }
 
 export function buildMapModel(tier: Tier, media: Media[], order: EventOrder, height: number, scale = 1): MapModel {
@@ -428,7 +429,7 @@ export function buildMapModel(tier: Tier, media: Media[], order: EventOrder, hei
     nodes,
     edges,
     tracks,
-    ticks: declutter(axis.ticks.map((t) => ({ ...t, x: sx(t.x) }))),
+    ticks: axis.ticks.map((t) => ({ ...t, x: sx(t.x) })),
     brackets,
     arcs,
     breaks: axis.breaks.map(sx),
@@ -444,8 +445,8 @@ export function buildMapModel(tier: Tier, media: Media[], order: EventOrder, hei
   };
 }
 
-/** Keeps axis labels from colliding once the scale compresses them. */
-function declutter(ticks: MapTick[]): MapTick[] {
+/** Keeps axis labels from colliding at the size they are drawn on screen. */
+export function declutter(ticks: MapTick[]): MapTick[] {
   let lastEnd = -Infinity;
   return ticks.filter((t) => {
     if (t.x < lastEnd) return false;

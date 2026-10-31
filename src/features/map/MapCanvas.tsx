@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useRef, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { motion } from 'framer-motion';
 import { useReduceMotion } from '../../app/settings';
 import { EDGE_STYLES } from '../../components/glyphs';
@@ -8,7 +8,7 @@ import type { Tier } from '../../data/schema';
 import { atLeast, eventById, lineLabel, transitionById, worldLineById } from '../../data/selectors';
 import { safeText } from '../../data/tierGuard';
 import { KNOT_EVENTS } from './constants';
-import type { MapEdge, MapModel, MapNode } from './layout';
+import { declutter, type MapEdge, type MapModel, type MapNode } from './layout';
 
 const EASE = [0.2, 0, 0, 1] as const;
 
@@ -36,12 +36,14 @@ interface NodeProps {
   focusable: boolean;
   dimmed: boolean;
   duration: number;
+  /** Marks are drawn larger on a map so wide it opens very small. */
+  marks: number;
   onActivate: (id: string) => void;
   onFocusNode: (id: string) => void;
   onHover: (id: string | null, x: number, y: number) => void;
 }
 
-const Node = memo(function Node({ node, tier, label, selected, focusable, dimmed, duration, onActivate, onFocusNode, onHover }: NodeProps) {
+const Node = memo(function Node({ node, tier, label, selected, focusable, dimmed, duration, marks, onActivate, onFocusNode, onHover }: NodeProps) {
   const event = node.kind === 'event' ? eventById(node.id) : null;
   const line = node.kind === 'line' ? worldLineById(node.id) : null;
   const confidence = event?.confidence ?? line?.divergenceConfidence ?? 'CONFIRMED';
@@ -64,6 +66,7 @@ const Node = memo(function Node({ node, tier, label, selected, focusable, dimmed
       onPointerEnter={(e) => onHover(node.id, e.clientX, e.clientY)}
       onPointerLeave={() => onHover(null, 0, 0)}
     >
+      <g transform={marks === 1 ? undefined : `scale(${marks})`}>
       <circle className="node-hit" r="13" />
       <circle className={`node-halo halo-${confidence.toLowerCase()}`} r="11" />
       {confidence === 'INTERPRETATION' && <circle r="9" className="node-ring node-ring-interp" />}
@@ -79,6 +82,7 @@ const Node = memo(function Node({ node, tier, label, selected, focusable, dimmed
         </text>
       )}
       {dateUnsure && <circle className="node-date-dot" cx="-7" cy="-7" r="1.8" />}
+      </g>
     </motion.g>
   );
 });
@@ -88,7 +92,14 @@ interface CanvasProps {
   tier: Tier;
   /** Screen-space pan in pixels. */
   panX: number;
+  panY?: number;
+  /** The whole map is scaled like a picture; nothing in it is laid out again. */
+  zoom?: number;
+  /** Fades the fine detail while the whole story is in view. */
+  overview?: boolean;
+  marks?: number;
   viewportWidth: number;
+  viewHeight?: number;
   orderedIds: string[];
   focusId: string | null;
   selectedId: string | null;
@@ -104,10 +115,10 @@ interface CanvasProps {
   onHoverNode: (id: string | null, x: number, y: number) => void;
   onHoverEdge: (edge: MapEdge | null, x: number, y: number) => void;
   onKeyDown: (e: ReactKeyboardEvent<SVGSVGElement>) => void;
-  onPan: (panX: number) => void;
+  onPan: (panX: number, panY: number) => void;
   /** Called on every drag move; returns the pan the map may actually use. */
-  onPanLive?: (panX: number) => number;
-  onZoomWheel: (factor: number, screenX: number) => void;
+  onPanLive?: (panX: number, panY: number) => { x: number; y: number };
+  onZoomWheel: (factor: number, screenX: number, screenY: number) => void;
   onSgInfo: () => void;
 }
 
@@ -115,7 +126,12 @@ export function MapCanvas({
   model,
   tier,
   panX,
+  panY = 0,
+  zoom = 1,
+  overview = false,
+  marks = 1,
   viewportWidth,
+  viewHeight,
   orderedIds,
   focusId,
   selectedId,
@@ -138,10 +154,16 @@ export function MapCanvas({
   const reduce = useReduceMotion();
   const svg = useRef<SVGSVGElement>(null);
   const world = useRef<SVGGElement>(null);
-  const drag = useRef<{ startX: number; startPan: number; moved: boolean; latest: number } | null>(null);
+  const axis = useRef<SVGGElement>(null);
+  const rows = useRef<SVGGElement>(null);
+  const drag = useRef<{ startX: number; startY: number; panX: number; panY: number; moved: boolean; x: number; y: number } | null>(null);
   const moveDuration = reduce ? 0 : duration;
   const panRef = useRef(panX);
   panRef.current = panX;
+  const panYRef = useRef(panY);
+  panYRef.current = panY;
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
   const gutterRef = useRef(model.gutter);
   gutterRef.current = model.gutter;
 
@@ -149,26 +171,33 @@ export function MapCanvas({
   const onPointerDown = useCallback(
     (e: ReactPointerEvent<SVGSVGElement>) => {
       if (!interactive || e.button !== 0) return;
-      drag.current = { startX: e.clientX, startPan: panX, moved: false, latest: panX };
+      drag.current = { startX: e.clientX, startY: e.clientY, panX, panY, moved: false, x: panX, y: panY };
     },
-    [interactive, panX],
+    [interactive, panX, panY],
   );
   const onPointerMove = useCallback((e: ReactPointerEvent<SVGSVGElement>) => {
     const d = drag.current;
     if (!d) return;
-    const delta = e.clientX - d.startX;
-    if (Math.abs(delta) > 4) d.moved = true;
+    const dx = e.clientX - d.startX;
+    const dy = e.clientY - d.startY;
+    if (Math.hypot(dx, dy) > 4) d.moved = true;
     if (!d.moved) return;
-    d.latest = onPanLive ? onPanLive(d.startPan + delta) : d.startPan + delta;
-    if (world.current) {
-      world.current.style.transitionDuration = '0s';
-      world.current.style.transform = `translateX(${d.latest + gutterRef.current}px)`;
-    }
+    const next = onPanLive ? onPanLive(d.panX + dx, d.panY + dy) : { x: d.panX + dx, y: d.panY + dy };
+    d.x = next.x;
+    d.y = next.y;
+    const put = (el: SVGGElement | null, transform: string) => {
+      if (!el) return;
+      el.style.transitionDuration = '0s';
+      el.style.transform = transform;
+    };
+    put(world.current, `translate(${next.x + gutterRef.current}px, ${next.y}px) scale(${zoomRef.current})`);
+    put(axis.current, `translateX(${next.x + gutterRef.current}px)`);
+    put(rows.current, `translateY(${next.y}px)`);
   }, [onPanLive]);
   const onPointerUp = useCallback(() => {
     const d = drag.current;
     drag.current = null;
-    if (d?.moved) onPan(d.latest);
+    if (d?.moved) onPan(d.x, d.y);
   }, [onPan]);
 
   useEffect(() => {
@@ -178,11 +207,11 @@ export function MapCanvas({
       e.preventDefault();
       // A sideways swipe moves along the timeline; only an up or down scroll zooms.
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
-        onPan(panRef.current - e.deltaX);
+        onPan(panRef.current - e.deltaX, panYRef.current);
         return;
       }
       const rect = el.getBoundingClientRect();
-      onZoomWheel(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - rect.left);
+      onZoomWheel(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - rect.left, e.clientY - rect.top);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
@@ -231,13 +260,19 @@ export function MapCanvas({
 
   const dimmedNode = (id: string) => !!spotlightId && spotlightId !== id;
   const gutter = model.gutter;
+  const shownHeight = viewHeight ?? model.height;
+  const slide = { transitionDuration: `${moveDuration}s` };
+  // Grid lines follow the labels, so both thin out together while the map is small.
+  const ticks = useMemo(() => declutter(model.ticks.map((t) => ({ ...t, x: t.x * zoom }))), [model.ticks, zoom]);
+  const canDragUp = model.height * zoom > shownHeight + 1;
 
   return (
     <svg
       ref={svg}
-      className="map-svg"
+      className={overview ? 'map-svg is-overview' : 'map-svg'}
+      style={{ '--zoom': zoom, touchAction: canDragUp ? 'none' : undefined } as CSSProperties}
       width={viewportWidth}
-      height={model.height + 34}
+      height={shownHeight + 34}
       role="application"
       aria-roledescription="world-line map"
       aria-label="World-line map. Use the arrow keys to move between events."
@@ -250,36 +285,32 @@ export function MapCanvas({
     >
       <defs>
         <clipPath id="map-clip">
-          <rect x={gutter} y="0" width={Math.max(0, viewportWidth - gutter)} height={model.height + 34} />
+          <rect x={gutter} y="0" width={Math.max(0, viewportWidth - gutter)} height={shownHeight} />
+        </clipPath>
+        <clipPath id="map-clip-axis">
+          <rect x={gutter} y={shownHeight} width={Math.max(0, viewportWidth - gutter)} height="34" />
+        </clipPath>
+        <clipPath id="map-clip-rows">
+          <rect x="0" y="0" width={viewportWidth} height={shownHeight} />
         </clipPath>
       </defs>
 
-      {model.bands.map((b) => (
-        <rect key={b.key} className={`band band-${b.kind}`} x={gutter} y={b.y0} width={viewportWidth - gutter} height={b.y1 - b.y0} />
-      ))}
-      {model.boundaryY !== null && (
-        <g className={spotlightEdgeId && model.edges.find((e) => e.id === spotlightEdgeId)?.crosses ? 'boundary is-pulsing' : 'boundary'}>
-          <line x1={gutter} x2={viewportWidth} y1={model.boundaryY} y2={model.boundaryY} />
-          <text x={viewportWidth - 10} y={model.boundaryY - 4} textAnchor="end">
-            {model.boundaryLabel}
-          </text>
-        </g>
-      )}
-
       <g clipPath="url(#map-clip)">
-        <g ref={world} className="map-world" style={{ transform: `translateX(${panX + gutter}px)`, transitionDuration: `${moveDuration}s` }}>
-          {model.ticks.map((t, i) => (
-            <g key={`${t.label}-${i}`} className="tick">
-              <line x1={t.x} x2={t.x} y1={0} y2={model.height} />
-              <text x={t.x + 3} y={model.height + 16}>
-                {t.label}
-              </text>
-            </g>
+        <g
+          ref={world}
+          className="map-world"
+          style={{ transform: `translate(${panX + gutter}px, ${panY}px) scale(${zoom})`, ...slide }}
+        >
+          {model.bands.map((b) => (
+            <rect key={b.key} className={`band band-${b.kind}`} x={-2000} y={b.y0} width={model.width + 4000} height={b.y1 - b.y0} />
           ))}
-          {model.breaks.map((x) => (
-            <text key={x} className="axis-break" x={x} y={model.height + 16} aria-hidden="true">
-              ≈
-            </text>
+          {model.boundaryY !== null && (
+            <g className={spotlightEdgeId && model.edges.find((e) => e.id === spotlightEdgeId)?.crosses ? 'boundary is-pulsing' : 'boundary'}>
+              <line x1={-2000} x2={model.width + 2000} y1={model.boundaryY} y2={model.boundaryY} />
+            </g>
+          )}
+          {ticks.map((t) => (
+            <line key={`${t.label}-${t.x}`} className="tick-line" x1={t.x / zoom} x2={t.x / zoom} y1={0} y2={model.height} />
           ))}
 
           {model.tracks.map((t) => (
@@ -296,7 +327,7 @@ export function MapCanvas({
           {model.floatConnector && (
             <g className="float-connector">
               <line x1={model.floatConnector.x1} x2={model.floatConnector.x2} y1={model.floatConnector.y} y2={model.floatConnector.y} />
-              <text x={model.floatConnector.x1} y={model.floatConnector.y - 4}>
+              <text x={model.floatConnector.x2} y={model.floatConnector.y - 4} textAnchor="end">
                 route links not mapped
               </text>
             </g>
@@ -357,7 +388,7 @@ export function MapCanvas({
                   animate={{ d: path, pathLength: 1 }}
                   transition={{ duration: drawOn ? 0.7 : moveDuration, ease: EASE }}
                 />
-                <motion.g initial={false} animate={{ x: e.to.x + 11, y: (e.from.y + e.to.y) / 2 }} transition={{ duration: moveDuration, ease: EASE }}>
+                <motion.g className="edge-badge" initial={false} animate={{ x: e.to.x + 11, y: (e.from.y + e.to.y) / 2 }} transition={{ duration: moveDuration, ease: EASE }}>
                   {e.collapsed ? (
                     <text className="edge-glyph" fill={style.color} textAnchor="middle" y="4" aria-hidden="true">
                       ⋯
@@ -393,6 +424,7 @@ export function MapCanvas({
                 focusable={interactive && (focusId ? focusId === node.id : index === 0)}
                 dimmed={dimmedNode(node.id)}
                 duration={moveDuration}
+                marks={marks}
                 onActivate={onActivateNode}
                 onFocusNode={onFocusNode}
                 onHover={hoverNode}
@@ -402,20 +434,45 @@ export function MapCanvas({
         </g>
       </g>
 
-      <rect className="gutter-bg" x="0" y="0" width={gutter} height={model.height + 34} />
+      <g clipPath="url(#map-clip-axis)">
+        <g ref={axis} className="map-slide" style={{ transform: `translateX(${panX + gutter}px)`, ...slide }}>
+          {ticks.map((t) => (
+            <g key={`${t.label}-${t.x}`} className="tick">
+              <text x={t.x + 3} y={shownHeight + 16}>
+                {t.label}
+              </text>
+            </g>
+          ))}
+          {model.breaks.map((x) => (
+            <text key={x} className="axis-break" x={x * zoom} y={shownHeight + 16} aria-hidden="true">
+              ≈
+            </text>
+          ))}
+        </g>
+      </g>
+
+      <rect className="gutter-bg" x="0" y="0" width={gutter} height={shownHeight + 34} />
+      <g clipPath="url(#map-clip-rows)">
+      <g ref={rows} className="map-slide" style={{ transform: `translateY(${panY}px)`, ...slide }}>
+      {model.boundaryY !== null && (
+        <text className="boundary-label" x={viewportWidth - 10} y={model.boundaryY * zoom - 4} textAnchor="end">
+          {model.boundaryLabel}
+        </text>
+      )}
       {model.bands.map(
         (b) =>
           b.label && (
-            <text key={b.key} className="band-label" x={gutter + 8} y={b.y0 + 12}>
+            <text key={b.key} className="band-label" x={gutter + 8} y={b.y0 * zoom + 12}>
               {b.label}
             </text>
           ),
       )}
       {model.rows.map((r) => {
+        const y = r.y * zoom;
         const line = r.lineId ? worldLineById(r.lineId) : null;
         if (!line) {
           return (
-            <text key={r.key} className="row-label row-label-note" x={gutter - 8} y={r.y + 4} textAnchor="end">
+            <text key={r.key} className="row-label row-label-note" x={gutter - 8} y={y + 4} textAnchor="end">
               no line stated
             </text>
           );
@@ -424,17 +481,17 @@ export function MapCanvas({
         return (
           <g key={r.key} data-row-y={r.y}>
             {usePremise && (
-              <text className="row-label row-label-note" x={gutter - 8} y={r.y - 8} textAnchor="end">
+              <text className="row-label row-label-note" x={gutter - 8} y={y - 8} textAnchor="end">
                 {line.premiseLabel}
               </text>
             )}
-            <text className={`row-label${r.ghost ? ' row-label-ghost' : ''}`} x={gutter - 8} y={r.y + (usePremise ? 10 : 4)} textAnchor="end">
+            <text className={`row-label${r.ghost ? ' row-label-ghost' : ''}`} x={gutter - 8} y={y + (usePremise ? 10 : 4)} textAnchor="end">
               {line.divergence ?? '------'}
             </text>
             {line.id === 'wl-sg-1048596' && (
               <g className="info-dot" role="button" tabIndex={interactive ? 0 : -1} aria-label="Unclear: open sources on whether this line is its own field" onClick={onSgInfo} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onSgInfo()}>
-                <circle cx={gutter - 96} cy={r.y} r="8" />
-                <text x={gutter - 96} y={r.y + 4} textAnchor="middle" aria-hidden="true">
+                <circle cx={gutter - 96} cy={y} r="8" />
+                <text x={gutter - 96} y={y + 4} textAnchor="middle" aria-hidden="true">
                   ?
                 </text>
               </g>
@@ -442,6 +499,8 @@ export function MapCanvas({
           </g>
         );
       })}
+      </g>
+      </g>
     </svg>
   );
 }

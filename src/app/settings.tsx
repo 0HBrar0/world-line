@@ -19,6 +19,7 @@ export interface Prefs {
   satellites: boolean;
   drifters: boolean;
   driftPace: 'rare' | 'normal' | 'lots';
+  rocket: boolean;
   lightRays: boolean;
   sunBrightness: number;
   quality: 'auto' | 'high' | 'low';
@@ -30,6 +31,7 @@ export const DEFAULT_PREFS: Prefs = {
   satellites: true,
   drifters: true,
   driftPace: 'normal',
+  rocket: true,
   lightRays: true,
   sunBrightness: 1,
   quality: 'auto',

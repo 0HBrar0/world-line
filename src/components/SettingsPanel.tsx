@@ -13,7 +13,7 @@ function Field({ title, note, children }: { title: string; note?: string; childr
   );
 }
 
-function Switch({ name, title, note }: { name: 'satellites' | 'drifters' | 'lightRays' | 'autoplayMechanics' | 'largeText'; title: string; note?: string }) {
+function Switch({ name, title, note }: { name: 'satellites' | 'drifters' | 'rocket' | 'lightRays' | 'autoplayMechanics' | 'largeText'; title: string; note?: string }) {
   const { prefs, setPref } = useSettings();
   return (
     <Field title={title} note={note}>
@@ -46,7 +46,7 @@ export function SettingsPanel() {
       <section>
         <h3>Space views</h3>
         <Switch name="satellites" title="Space station and satellites" />
-        <Switch name="drifters" title="Things drifting off Earth" note="Prototype: lamps, chairs, bin bags and more" />
+        <Switch name="drifters" title="Things drifting off Earth" note="Click one to find out why it left" />
         {prefs.drifters && (
           <Choice
             name="driftPace"
@@ -58,6 +58,7 @@ export function SettingsPanel() {
             ]}
           />
         )}
+        <Switch name="rocket" title="Rocket launches" note="Please do not right-click them" />
         <Switch name="lightRays" title="Light rays" />
         <Field title="Sun brightness">
           <input type="range" min="0.4" max="1.3" step="0.1" value={prefs.sunBrightness} onChange={(e) => setPref('sunBrightness', Number(e.target.value))} />

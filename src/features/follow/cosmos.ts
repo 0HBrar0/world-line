@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import type { Prefs } from '../../app/settings';
-import { createOrbiters } from './orbiters';
+import { createOrbiters, type Orbiters } from './orbiters';
 
 // The world around the line. Everything here is decoration, built from numbers only, so it cannot carry story content.
 // True path tracing is far too slow to stay smooth, so its look is computed directly: sunlight, terminators,
@@ -291,6 +291,7 @@ export interface Cosmos {
   rays: ShaderPass;
   /** Where the sun is drawn. */
   sunAt: THREE.Vector3;
+  orbiters: Orbiters | null;
   update: (now: number, dt: number, camera: THREE.Camera) => void;
   configure: (prefs: Prefs) => void;
   dispose: () => void;
@@ -338,7 +339,7 @@ export function createCosmos(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
         { at: new THREE.Vector3(-640, 110, -620), radius: 92, kind: 'gas', colors: ['#9a5a34', '#d8a468', '#f0dcb4'], air: '#ffb070', ring: true },
         { at: new THREE.Vector3(660, -70, -560), radius: 58, kind: 'earth', colors: ['#1c4a6a', '#2e7a5a', '#c9b48a'], air: '#58a8ff' },
         { at: new THREE.Vector3(1060, 260, -900), radius: 128, kind: 'ice', colors: ['#3a5a8a', '#7fb0d0', '#d8ecf4'], air: '#7fd0ff' },
-        { at: new THREE.Vector3(-1060, -30, -240), radius: 74, kind: 'rock', colors: ['#5a2a24', '#a4502e', '#d89a68'], air: '#ff8050' },
+        { at: new THREE.Vector3(450, 60, -700), radius: 46, kind: 'rock', colors: ['#5a2a24', '#a4502e', '#d89a68'], air: '#ff8050' },
         { at: new THREE.Vector3(130, 250, -1020), radius: 44, kind: 'gas', colors: ['#3e2a6a', '#8050b0', '#d0a8e0'], air: '#b080ff' },
       ]
     : Array.from({ length: 7 }, (_, k) => {
@@ -366,7 +367,8 @@ export function createCosmos(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
   scene.add(rocks);
 
   const home = specs.find((spec) => spec.kind === 'earth');
-  const orbiters = home ? createOrbiters(scene, home.at, home.radius, random) : null;
+  const mars = entity ? specs.find((spec) => spec.kind === 'rock') : undefined;
+  const orbiters = home ? createOrbiters(scene, home.at, home.radius, random, glowTexture, mars) : null;
 
   const rays = new ShaderPass(rayShader);
   const probe = new THREE.Vector3();
@@ -375,6 +377,7 @@ export function createCosmos(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
   return {
     rays,
     sunAt: star.position,
+    orbiters,
     update(now, dt, camera) {
       worlds.forEach((w, i) => {
         w.surface.uniforms.spin.value = now * 0.00004 * (i % 2 ? 1 : -0.7);

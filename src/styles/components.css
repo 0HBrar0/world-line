@@ -76,7 +76,7 @@
 .map-svg { display: block; touch-action: pan-y; cursor: grab; user-select: none; }
 .map-svg:active { cursor: grabbing; }
 .map-svg:focus { outline: none; }
-.map-world { transition-property: transform; transition-timing-function: var(--ease-standard); will-change: transform; }
+.map-world, .map-slide { transition-property: transform; transition-timing-function: var(--ease-standard); transform-origin: 0 0; }
 .band-neutral { fill: var(--band-neutral); }
 .band-alpha { fill: var(--band-alpha); }
 .band-beta { fill: var(--band-beta); }
@@ -84,10 +84,10 @@
 .band-sg0 { fill: var(--band-sg0); }
 .band-vn_ending { fill: var(--bg-2); }
 .band-label { fill: var(--ink-1); font: 600 11px var(--font-display); letter-spacing: 0.1em; text-transform: uppercase; }
-.boundary line { stroke: var(--boundary); stroke-width: 1.5; stroke-dasharray: 7 5; }
-.boundary text { fill: var(--nixie); font-size: 11px; }
+.boundary line { stroke: var(--boundary); stroke-width: 1.5; stroke-dasharray: 7 5; vector-effect: non-scaling-stroke; }
+.boundary-label { fill: var(--nixie); font-size: 11px; }
 .boundary.is-pulsing line { stroke-width: 3.5; stroke: var(--nixie); }
-.tick line { stroke: var(--grid); stroke-width: 1; }
+.tick-line { stroke: var(--grid); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .tick text, .axis-break { fill: var(--ink-1); font: 10.5px var(--font-mono); }
 .track { stroke: #6b7a88; stroke-width: 2; }
 .track-gold { stroke: var(--band-sg-stroke); stroke-width: 3; }
@@ -119,9 +119,9 @@
 .edge-glyph { font-size: 12px; }
 .bracket path { fill: none; stroke: #4a5763; stroke-width: 1; opacity: 0.55; }
 .mech-icon { vertical-align: -3px; }
-.bracket text { fill: var(--ink-1); font: 9.5px var(--font-mono); }
+.bracket text { fill: var(--ink-1); font: calc(9.5px / var(--zoom, 1)) var(--font-mono); }
 .float-connector line { stroke: var(--ink-1); stroke-dasharray: 2 4; }
-.float-connector text { fill: var(--ink-1); font-size: 10px; }
+.float-connector text { fill: var(--ink-1); font-size: calc(10px / var(--zoom, 1)); }
 .reconnect-arc { fill: none; stroke: var(--edge-reconnect); stroke-width: 2; stroke-dasharray: 8 6; }
 .reconnect-arc.is-animated { animation: dash-run 2.4s linear infinite; }
 @keyframes dash-run { to { stroke-dashoffset: -56; } }
@@ -163,7 +163,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .reconnect-arc.is-animated { animation: none; }
-  .map-world { transition: none; }
+  .map-world, .map-slide { transition: none; }
 }
 @media (max-width: 767px) {
   .home-grid { grid-template-columns: 1fr; }

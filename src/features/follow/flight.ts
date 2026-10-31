@@ -5,6 +5,8 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { createCosmos } from './cosmos';
 import { createMarkers } from './markers';
+import type { Oddity } from './orbiters';
+import { createRupture } from './rupture';
 import type { Prefs } from '../../app/settings';
 import type { SpaceStop } from './spaceStops';
 
@@ -13,6 +15,10 @@ const BASE_FOV = 58;
 // Average frame times that step quality down: first the light rays and sharpness, then the glow.
 const SLOW_FRAME_MS = [26, 45];
 const PICK_PX = 26;
+// The end of the world, in seconds from the blast: the tear grows, then the screen is handed to the game-over page.
+const TEAR_S = 2.6;
+const TEAR_REACH = 0.56;
+const BROKEN_AT_S = 3;
 const SLEEVE_OPACITY = 0.82;
 // The entity's view: its neck stays put and only the head turns.
 const ENTITY_SCALE = 7;
@@ -102,6 +108,18 @@ export interface Flight {
   starAt: (clientX: number, clientY: number) => number | null;
   /** Highlights one star, or none. */
   hover: (index: number | null) => void;
+  /** The floating object nearest a screen position, or null. */
+  objectAt: (clientX: number, clientY: number) => Oddity | null;
+  /** Outlines an object and makes it wait. */
+  highlight: (thing: Oddity | null) => void;
+  /** Keeps an object waiting while its note is open. */
+  hold: (thing: Oddity | null) => void;
+  /** Blows a thing up. True if that was the rocket, and the world is ending. */
+  destroy: (thing: Oddity) => boolean;
+  launchRocket: () => void;
+  /** An object's place on screen, for local tests. */
+  pointOf: (id: 'drifter' | 'rocket' | 'mars') => { x: number; y: number } | null;
+  marsAt: (clientX: number, clientY: number) => { x: number; y: number; r: number } | null;
   /** Applies Settings changes to the running scene. */
   configure: (prefs: Prefs) => void;
   dispose: () => void;
@@ -109,7 +127,7 @@ export interface Flight {
 
 export type FlightView = 'entity' | 'flight';
 
-export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], startIndex: number, view: FlightView, startPrefs: Prefs): Flight {
+export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], startIndex: number, view: FlightView, startPrefs: Prefs, onBroken: () => void): Flight {
   const random = seeded(2010);
   const entity = view === 'entity';
   const scale = entity ? ENTITY_SCALE : 1;
@@ -223,6 +241,8 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
   const bloom = new UnrealBloomPass(new THREE.Vector2(1, 1), 0.38, 0.55, 0.8);
   composer.addPass(bloom);
   composer.addPass(cosmos.rays);
+  const rupture = createRupture();
+  composer.addPass(rupture);
   composer.addPass(new OutputPass());
   let prefs = startPrefs;
   // Quality steps taken on a slow machine: 1 drops the rays and sharpness, 2 drops the glow too.
@@ -268,6 +288,8 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
   const pull = new THREE.Vector3();
   const facing = new THREE.Vector3();
   let focus = 0;
+  let doomedAt: number | null = null;
+  let broken = false;
 
   const arrive = (now: number) => {
     trip.arrived = true;
@@ -350,12 +372,32 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
     markers.update(now, dt, index, hovered);
 
     cosmos.update(now, dt, camera);
-    if (dropped < SLOW_FRAME_MS.length) composer.render();
+    if (doomedAt !== null) {
+      const seconds = (now - doomedAt) / 1000;
+      const grown = Math.min(seconds / TEAR_S, 1);
+      rupture.uniforms.radius.value = TEAR_REACH * (1 - (1 - grown) ** 3);
+      rupture.uniforms.time.value = seconds;
+      rupture.uniforms.flash.value = Math.exp(-seconds * 6);
+      rupture.uniforms.aspect.value = camera.aspect;
+      const shake = Math.max(1.4 - seconds * 0.3, 0) * scale;
+      camera.position.add(lookFrom.set(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).multiplyScalar(shake * 1.6));
+      camera.rotation.z += (Math.random() - 0.5) * 0.012;
+      if (seconds > BROKEN_AT_S && !broken) {
+        broken = true;
+        onBroken();
+      }
+    }
+    if (dropped < SLOW_FRAME_MS.length || doomedAt !== null) composer.render();
     else renderer.render(scene, camera);
   };
   frame = requestAnimationFrame(render);
 
   const probe = new THREE.Vector3();
+  const onScreen = (at: THREE.Vector3) => {
+    const rect = canvas.getBoundingClientRect();
+    probe.copy(at).project(camera);
+    return { x: ((probe.x + 1) / 2) * rect.width + rect.left, y: ((1 - probe.y) / 2) * rect.height + rect.top };
+  };
 
   return {
     starAt(clientX, clientY) {
@@ -375,6 +417,36 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
     },
     hover(next) {
       hovered = next;
+    },
+    objectAt(clientX, clientY) {
+      if (doomedAt !== null) return null;
+      return cosmos.orbiters?.pickAt(clientX, clientY, canvas.getBoundingClientRect(), camera) ?? null;
+    },
+    marsAt(clientX, clientY) {
+      if (doomedAt !== null) return null;
+      return cosmos.orbiters?.marsAt(clientX, clientY, canvas.getBoundingClientRect(), camera) ?? null;
+    },
+    highlight(thing) {
+      cosmos.orbiters?.highlight(thing);
+    },
+    hold(thing) {
+      cosmos.orbiters?.hold(thing);
+    },
+    destroy(thing) {
+      const blast = cosmos.orbiters?.destroy(thing);
+      if (!blast) return false;
+      probe.copy(blast).project(camera);
+      rupture.uniforms.center.value = [probe.x * 0.5 + 0.5, probe.y * 0.5 + 0.5];
+      rupture.enabled = true;
+      doomedAt = performance.now();
+      return true;
+    },
+    launchRocket() {
+      cosmos.orbiters?.launchRocket();
+    },
+    pointOf(id) {
+      const at = cosmos.orbiters?.positionOf(id);
+      return at ? onScreen(at) : null;
     },
     configure(next) {
       const qualityChanged = next.quality !== prefs.quality || next.lightRays !== prefs.lightRays;

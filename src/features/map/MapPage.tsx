@@ -19,8 +19,12 @@ import { MobileTimeline } from './MobileTimeline';
 import { MapList, SpinOffGutter } from './MapList';
 import { eventTarget, lineTarget, transitionTarget } from './targets';
 
-const MAX_ZOOM = 6;
+// Marks are never drawn smaller than this at the full view, or bigger than this zoomed all the way in.
+const MARK_AT_FIT = 0.67;
+const MARK_AT_MOST = 2.6;
 const STEP_ZOOM = 1.6;
+const EDGE_ROOM = 12;
+const WHEEL_EASE = 0.12;
 const STEP_MS = 3200;
 
 export function useViewport() {
@@ -61,6 +65,7 @@ export function MapPage() {
   const [order, setOrder] = useState<EventOrder>('calendar');
   const [zoom, setZoom] = useState<number | null>(null);
   const [pan, setPan] = useState(0);
+  const [rise, setRise] = useState(0);
   const [selection, setSelection] = useState<Selection | null>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [edgeIndex, setEdgeIndex] = useState(-1);
@@ -75,7 +80,7 @@ export function MapPage() {
 
   const mobile = w < 768;
   const docked = w >= 1280 && !!selection;
-  const mapHeight = Math.max(380, h - 300);
+  const mapHeight = Math.max(380, h - 226);
 
   useLayoutEffect(() => {
     const el = svgHost.current;
@@ -87,10 +92,20 @@ export function MapPage() {
     return () => observer.disconnect();
   }, [mobile, docked]);
 
-  const unit = useMemo(() => buildMapModel(tier, media, order, mapHeight, 1), [tier, media, order, mapHeight]);
-  const fit = Math.min(3, Math.max(0.3, (hostWidth - unit.gutter - 24) / Math.max(unit.width, 1)));
-  const scale = zoom ?? fit;
-  const model: MapModel = useMemo(() => (scale === 1 ? unit : buildMapModel(tier, media, order, mapHeight, scale)), [unit, tier, media, order, mapHeight, scale]);
+  // The layout is drawn once for the size of the window. Zooming only scales that finished picture, so a
+  // short story is spread to fill the map, and a long one is drawn tall enough to fill it when scaled down.
+  const natural = useMemo(() => buildMapModel(tier, media, order, mapHeight, 1), [tier, media, order, mapHeight]);
+  const room = hostWidth - natural.gutter - EDGE_ROOM * 2;
+  const across = room / Math.max(natural.width, 1);
+  const spread = Math.min(3, Math.max(1, across));
+  const tall = mapHeight / Math.min(1, across);
+  const model: MapModel = useMemo(() => buildMapModel(tier, media, order, tall, spread), [tier, media, order, tall, spread]);
+  const fit = Math.min(1, room / Math.max(model.width, 1));
+  const marks = Math.max(1, MARK_AT_FIT / fit);
+  const maxZoom = Math.max(fit, MARK_AT_MOST / marks);
+  const scale = Math.max(fit, Math.min(maxZoom, zoom ?? fit));
+  const viewHeight = model.height * fit;
+  const overview = fit < 0.85 && scale < fit * 1.3;
 
   const orderedIds = useMemo(() => {
     const events = visibleEvents(tier, media, order).map((e) => e.id);
@@ -99,26 +114,32 @@ export function MapPage() {
   }, [tier, media, order, model.nodes]);
 
   const viewport = hostWidth - model.gutter;
-  const clampPan = useCallback((p: number) => Math.min(20, Math.max(p, Math.min(20, viewport - model.width - 20))), [viewport, model.width]);
+  const clampPan = useCallback(
+    (p: number, s: number) => Math.min(EDGE_ROOM, Math.max(p, Math.min(EDGE_ROOM, viewport - model.width * s - EDGE_ROOM))),
+    [viewport, model.width],
+  );
+  const clampRise = useCallback((p: number, s: number) => Math.min(0, Math.max(p, viewHeight - model.height * s)), [viewHeight, model.height]);
+  const panX = clampPan(pan, scale);
+  const panY = clampRise(rise, scale);
 
   const fitStory = useCallback(() => {
     setDuration(0.6);
     setZoom(null);
     setPan(0);
+    setRise(0);
   }, []);
 
   const zoomBy = useCallback(
-    (factor: number, screenX?: number) => {
-      setDuration(0);
-      const next = Math.min(MAX_ZOOM, Math.max(fit, scale * factor));
-      const anchor = (screenX ?? hostWidth / 2) - model.gutter;
+    (factor: number, screenX?: number, screenY?: number) => {
+      setDuration(WHEEL_EASE);
+      const next = Math.min(maxZoom, Math.max(fit, scale * factor));
+      const anchorX = (screenX ?? hostWidth / 2) - model.gutter;
+      const anchorY = screenY ?? viewHeight / 2;
       setZoom(next);
-      setPan((p) => {
-        const worldX = (anchor - p) / scale;
-        return Math.min(20, anchor - worldX * next);
-      });
+      setPan(anchorX - ((anchorX - panX) / scale) * next);
+      setRise(anchorY - ((anchorY - panY) / scale) * next);
     },
-    [fit, scale, hostWidth, model.gutter],
+    [fit, maxZoom, scale, hostWidth, viewHeight, model.gutter, panX, panY],
   );
 
   const toggleOrder = useCallback(() => {
@@ -126,6 +147,7 @@ export function MapPage() {
     setOrder((o) => (o === 'calendar' ? 'seq' : 'calendar'));
     setZoom(null);
     setPan(0);
+    setRise(0);
   }, []);
 
   useEffect(() => {
@@ -172,13 +194,12 @@ export function MapPage() {
     (id: string) => {
       const node = model.nodes.find((n) => n.id === id);
       if (!node) return;
-      setPan((p) => {
-        const at = node.x + p;
-        if (at >= 30 && at <= viewport - 30) return p;
-        return clampPan(viewport / 2 - node.x);
-      });
+      const atX = node.x * scale + panX;
+      const atY = node.y * scale + panY;
+      if (atX < 30 || atX > viewport - 30) setPan(viewport / 2 - node.x * scale);
+      if (atY < 30 || atY > viewHeight - 30) setRise(viewHeight / 2 - node.y * scale);
     },
-    [model.nodes, viewport, clampPan],
+    [model.nodes, scale, panX, panY, viewport, viewHeight],
   );
 
   const focusNode = useCallback(
@@ -319,19 +340,20 @@ export function MapPage() {
     setHover({ text: { title, date: '', summary: edge.collapsed ? '' : 'Click for details.' }, x, y });
   }, []);
 
-  const onPan = useCallback((p: number) => {
+  const onPan = useCallback((x: number, y: number) => {
     setDuration(0);
     setPlaying(false);
-    setPan(clampPan(p));
-  }, [clampPan]);
+    setPan(x);
+    setRise(y);
+  }, []);
 
   const onPanLive = useCallback(
-    (p: number) => {
-      const clamped = clampPan(p);
-      liveMove.current?.(-clamped / scale);
+    (x: number, y: number) => {
+      const clamped = { x: clampPan(x, scale), y: clampRise(y, scale) };
+      liveMove.current?.(-clamped.x / scale);
       return clamped;
     },
-    [clampPan, scale],
+    [clampPan, clampRise, scale],
   );
 
   // Stepping moves along the story like a video: it glides to each event without opening its panel.
@@ -347,16 +369,16 @@ export function MapPage() {
       const id = storyIds[i];
       const node = id ? model.nodes.find((n) => n.id === id) : undefined;
       if (!node) return;
-      const next = Math.min(MAX_ZOOM, Math.max(scale, STEP_ZOOM));
-      const ratio = next / scale;
+      const next = Math.min(maxZoom, Math.max(scale, STEP_ZOOM));
       setDuration(0.6);
       setZoom(next);
-      setPan(Math.min(20, Math.max(viewport / 2 - node.x * ratio, Math.min(20, viewport - model.width * ratio - 20))));
+      setPan(viewport / 2 - node.x * next);
+      setRise(viewHeight / 2 - node.y * next);
       setFocusId(id);
       setEdgeIndex(-1);
       focusLineOf(id);
     },
-    [storyIds, model.nodes, model.width, scale, viewport, focusLineOf],
+    [storyIds, model.nodes, maxZoom, scale, viewport, viewHeight, focusLineOf],
   );
 
   useEffect(() => {
@@ -415,8 +437,13 @@ export function MapPage() {
           <MapCanvas
             model={model}
             tier={tier}
-            panX={pan}
+            panX={panX}
+            panY={panY}
+            zoom={scale}
+            overview={overview}
+            marks={marks}
             viewportWidth={hostWidth}
+            viewHeight={viewHeight}
             orderedIds={orderedIds}
             focusId={focusId}
             selectedId={selectedNode}
@@ -456,15 +483,15 @@ export function MapPage() {
             onPace={setPace}
           >
             <MiniMap
-              model={unit}
+              model={model}
               width={Math.max(120, Math.min(560, hostWidth - 320))}
-              viewStart={-pan / scale}
+              viewStart={-panX / scale}
               viewWidth={viewport / scale}
               duration={duration}
               liveMove={liveMove}
               onJump={(x) => {
                 setDuration(0);
-                setPan(clampPan(viewport / 2 - x * scale));
+                setPan(viewport / 2 - x * scale);
               }}
             />
           </GlassDock>
