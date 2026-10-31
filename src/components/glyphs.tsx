@@ -28,6 +28,7 @@ const MONOGRAMS: Record<string, { mono: string; color: string }> = {
 const glyphFor = (id: string) => MONOGRAMS[id] ?? { mono: '??', color: '#a9b4bf' };
 
 export const glyphColor = (id: string) => glyphFor(id).color;
+export const glyphMono = (id: string) => glyphFor(id).mono;
 
 export function CharacterGlyph({ id, size = 30 }: { id: string; size?: number }) {
   const glyph = glyphFor(id);

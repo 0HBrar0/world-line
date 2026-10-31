@@ -11,6 +11,8 @@ const above = (t: string, tier: Tier) => order.indexOf(t as Tier) > order.indexO
 for (const tier of order) {
   test(`stepping at ${tier} never shows a higher-tier event`, async ({ page }) => {
     test.setTimeout(90_000);
+    // Reduced motion shows the chart, whose node ids are checked below.
+    await page.emulateMedia({ reducedMotion: 'reduce' });
     await setTier(page, tier);
     await page.goto('/#/follow/1');
     const media = tier === 'sg0' || tier === 'extras' ? ['vn', 'anime', 'sg0_vn', 'sg0_anime'] : ['vn', 'anime'];
@@ -51,6 +53,8 @@ test('keyboard controls and saved progress', async ({ page }) => {
 });
 
 test('play advances on its own', async ({ page }) => {
+  // The faked clock fires thousands of frames at once, too many for the 3D views.
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.clock.install();
   await page.goto('/#/follow/1');
   await page.getByRole('button', { name: 'Play', exact: true }).click();

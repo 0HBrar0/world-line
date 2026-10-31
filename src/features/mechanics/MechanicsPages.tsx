@@ -3,21 +3,25 @@ import { href, navigate } from '../../app/router';
 import { useSettings } from '../../app/settings';
 import { useToast } from '../../components/toast';
 import { Linked } from '../../components/Term';
+import { Threads } from '../../components/Threads';
 import { canon } from '../../data/load';
 import { isVisible, mechanicById } from '../../data/selectors';
 import { safeText } from '../../data/tierGuard';
 import { MechanicExtras, MechanicPlayer } from './MechanicPlayer';
+
+const ART_COLORS = ['#ff8a1f', '#cc79a7', '#7aa7ff', '#e6c84a', '#3ecf8e', '#56b4e9'];
 
 export function MechanicsIndex() {
   const { tier } = useSettings();
   return (
     <main id="main" className="page">
       <h1>How time travel works</h1>
-      <ul className="tile-grid">
-        {canon.mechanics.map((m) =>
+      <ul className="tile-grid mechanic-grid">
+        {canon.mechanics.map((m, i) =>
           isVisible(m, tier) ? (
             <li key={m.id}>
-              <a className="tile" href={href(`mechanics/${m.id}`)}>
+              <a className="tile mechanic-tile" href={href(`mechanics/${m.id}`)}>
+                <Threads className="mechanic-art" color={ART_COLORS[i % ART_COLORS.length]} seed={i * 3 + 1} />
                 <h2>{safeText(m.title, tier)}</h2>
                 <p>{safeText(m.oneLiner, tier)}</p>
               </a>

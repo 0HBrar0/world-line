@@ -74,8 +74,10 @@ npx tsx scripts/report-tier-leaks.ts                      # lists strings the ti
 5. Fixed-point events are listed by hand for the knot glyph.
 
 **Spec differences and known limitations:**
+
+- Character pictures: each character has an original drawn poster (a faceless silhouette, not their real design). An image added to `src/assets/characters/` (see the README there) replaces it on the tile and character page.
 - The spoiler control is a dropdown, not a segmented control: six long labels do not fit in the top bar.
-- The look is a retro lab terminal. On wide screens the top bar becomes a side console, and Follow the story puts its log beside the map.
+- The look departs from `docs/visual-concept.md`: editorial type (Bodoni Moda, Instrument Sans), a scroll-driven home page, and each section has its own colour world. Follow the story is real-time 3D (three.js, loaded only on that page) with three views: Observer (the default) looks through the eyes of a colossal being whose head turns to follow the line across a galaxy; Flight rides along the line, with world-line jumps warping the camera; Chart is the flat map, used automatically when motion is reduced or WebGL is missing. The map and every Follow view share glass player controls (back, play, next, pace), and on the map that bar holds the overview strip.
 - Media chips, the confidence legend and Reduce motion sit in a Filters popover at every width, not only below 1280 px.
 - The S;G 0 page is split into four tabs rather than one long scroll.
 - Hovering the map fades everything except the hovered world line and its edges.

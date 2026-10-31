@@ -9,6 +9,8 @@ import type { Character, Tier } from '../../data/schema';
 import { characterById, effectiveTier, eventById, isVisible, tierRank } from '../../data/selectors';
 import { isTextSafe, safeText } from '../../data/tierGuard';
 import { MediaList, Reveals } from '../map/DetailPanel';
+import { Portrait } from './Portrait';
+import { portraitFor } from './portraits';
 
 const open = (obj: { spoilerTier?: Tier }, c: Character, tier: Tier) => tierRank(effectiveTier(obj, c)) <= tierRank(tier);
 
@@ -21,6 +23,11 @@ const FATE_LABELS = [
   ['sg0', 'In Steins;Gate 0'],
 ] as const;
 
+function CharacterImage({ id, size }: { id: string; size: number }) {
+  const src = portraitFor(id);
+  return src ? <img className="portrait-small" src={src} alt="" width={size} height={size} /> : <CharacterGlyph id={id} size={size} />;
+}
+
 export function CharactersIndex() {
   const { tier } = useSettings();
   const shown = canon.characters.filter((c) => isVisible(c, tier));
@@ -28,17 +35,20 @@ export function CharactersIndex() {
     <main id="main" className="page">
       <h1>Characters</h1>
       <ul className="tile-grid">
-        {shown.map((c) => (
-          <li key={c.id}>
-            <a className="tile character-tile" style={{ '--c': glyphColor(c.id) } as CSSProperties} href={href(`characters/${c.id}`)}>
-              <CharacterGlyph id={c.id} size={72} />
-              <span>
-                <h2>{c.name}</h2>
-                <p>{safeText(c.role, tier)}</p>
-              </span>
-            </a>
-          </li>
-        ))}
+        {shown.map((c) => {
+          const portrait = portraitFor(c.id);
+          return (
+            <li key={c.id}>
+              <a className="tile character-tile has-portrait" style={{ '--c': glyphColor(c.id) } as CSSProperties} href={href(`characters/${c.id}`)}>
+                {portrait ? <img className="tile-portrait" src={portrait} alt="" loading="lazy" /> : <Portrait id={c.id} className="tile-portrait" />}
+                <span>
+                  <h2>{c.name}</h2>
+                  <p>{safeText(c.role, tier)}</p>
+                </span>
+              </a>
+            </li>
+          );
+        })}
       </ul>
     </main>
   );
@@ -74,6 +84,7 @@ export function CharacterPage({ id }: { id: string }) {
     return e && isVisible(e, tier) ? [e] : [];
   });
   const number = c.labMemberNumber;
+  const portrait = portraitFor(c.id);
 
   return (
     <main id="main" className="page entry">
@@ -81,7 +92,7 @@ export function CharacterPage({ id }: { id: string }) {
         <a href={href('characters')}>All characters</a>
       </p>
       <div className="character-head" style={{ '--c': glyphColor(c.id) } as CSSProperties}>
-        <CharacterGlyph id={c.id} size={96} />
+        {portrait ? <img className="head-portrait" src={portrait} alt="" /> : <Portrait id={c.id} className="head-portrait" />}
         <div>
           <h1>{c.name}</h1>
           <p className="detail-meta">
@@ -125,7 +136,7 @@ export function CharacterPage({ id }: { id: string }) {
             {relationships.map((r, i) => (
               <li key={i} className="row">
                 <a href={href(`characters/${r.characterId}`)}>
-                  <CharacterGlyph id={r.characterId} size={26} />
+                  <CharacterImage id={r.characterId} size={26} />
                 </a>
                 <span>
                   <strong>{characterById(r.characterId)?.name}:</strong> {r.type}

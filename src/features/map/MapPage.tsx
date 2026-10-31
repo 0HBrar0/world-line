@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { navigate, useRoute } from '../../app/router';
 import { useSettings } from '../../app/settings';
 import { Badge } from '../../components/Badge';
+import { GlassDock } from '../../components/GlassDock';
 import { useSourceDrawer } from '../../components/drawer';
 import { EDGE_STYLES, MECHANIC_FOR_EDGE } from '../../components/glyphs';
 import { formatDate } from '../../components/format';
@@ -19,6 +20,8 @@ import { MapList, SpinOffGutter } from './MapList';
 import { eventTarget, lineTarget, transitionTarget } from './targets';
 
 const MAX_ZOOM = 6;
+const STEP_ZOOM = 1.6;
+const STEP_MS = 3200;
 
 export function useViewport() {
   const [size, setSize] = useState(() => ({ w: window.innerWidth, h: window.innerHeight }));
@@ -66,6 +69,9 @@ export function MapPage() {
   const [duration, setDuration] = useState(0.6);
   const svgHost = useRef<HTMLDivElement>(null);
   const [hostWidth, setHostWidth] = useState(1000);
+  const [playing, setPlaying] = useState(false);
+  const [pace, setPace] = useState(1);
+  const liveMove = useRef<((viewStart: number) => void) | null>(null);
 
   const mobile = w < 768;
   const docked = w >= 1280 && !!selection;
@@ -315,8 +321,53 @@ export function MapPage() {
 
   const onPan = useCallback((p: number) => {
     setDuration(0);
+    setPlaying(false);
     setPan(clampPan(p));
   }, [clampPan]);
+
+  const onPanLive = useCallback(
+    (p: number) => {
+      const clamped = clampPan(p);
+      liveMove.current?.(-clamped / scale);
+      return clamped;
+    },
+    [clampPan, scale],
+  );
+
+  // Stepping moves along the story like a video: it glides to each event without opening its panel.
+  const storyIds = useMemo(() => {
+    const placed = new Set(model.nodes.map((n) => n.id));
+    return visibleEvents(tier, media, order).map((e) => e.id).filter((id) => placed.has(id));
+  }, [tier, media, order, model.nodes]);
+  const storyIndex = focusId ? storyIds.indexOf(focusId) : -1;
+  const storyEvent = storyIndex >= 0 ? eventById(storyIds[storyIndex]) : undefined;
+
+  const stepTo = useCallback(
+    (i: number) => {
+      const id = storyIds[i];
+      const node = id ? model.nodes.find((n) => n.id === id) : undefined;
+      if (!node) return;
+      const next = Math.min(MAX_ZOOM, Math.max(scale, STEP_ZOOM));
+      const ratio = next / scale;
+      setDuration(0.6);
+      setZoom(next);
+      setPan(Math.min(20, Math.max(viewport / 2 - node.x * ratio, Math.min(20, viewport - model.width * ratio - 20))));
+      setFocusId(id);
+      setEdgeIndex(-1);
+      focusLineOf(id);
+    },
+    [storyIds, model.nodes, model.width, scale, viewport, focusLineOf],
+  );
+
+  useEffect(() => {
+    if (!playing) return;
+    if (storyIndex >= storyIds.length - 1) {
+      setPlaying(false);
+      return;
+    }
+    const timer = window.setTimeout(() => stepTo(storyIndex + 1), storyIndex < 0 ? 0 : STEP_MS / pace);
+    return () => window.clearTimeout(timer);
+  }, [playing, pace, storyIndex, storyIds.length, stepTo]);
 
   const showSgInfo = useCallback(() => {
     const line = canon.worldLines.find((l) => l.lane === 'steins_gate');
@@ -381,20 +432,43 @@ export function MapPage() {
             onHoverEdge={onHoverEdge}
             onKeyDown={onKeyDown}
             onPan={onPan}
+            onPanLive={onPanLive}
             onZoomWheel={zoomBy}
             onSgInfo={showSgInfo}
           />
+          {storyEvent && (
+            <div className="glass-now">
+              <strong>{hoverForNode(storyEvent.id, tier)?.title}</strong>
+              <span className="detail-meta">{formatDate(storyEvent)}</span>
+              <Badge target={eventTarget(storyEvent, tier)} />
+            </div>
+          )}
+          <GlassDock
+            className="glass-dock-map"
+            label="Story player"
+            playing={playing}
+            canBack={storyIndex > 0}
+            canNext={storyIndex < storyIds.length - 1}
+            pace={pace}
+            onTogglePlay={() => setPlaying((p) => !p)}
+            onBack={() => stepTo(storyIndex - 1)}
+            onNext={() => stepTo(storyIndex + 1)}
+            onPace={setPace}
+          >
+            <MiniMap
+              model={unit}
+              width={Math.max(120, Math.min(560, hostWidth - 320))}
+              viewStart={-pan / scale}
+              viewWidth={viewport / scale}
+              duration={duration}
+              liveMove={liveMove}
+              onJump={(x) => {
+                setDuration(0);
+                setPan(clampPan(viewport / 2 - x * scale));
+              }}
+            />
+          </GlassDock>
         </div>
-        <MiniMap
-          model={unit}
-          width={hostWidth}
-          viewStart={-pan / scale}
-          viewWidth={viewport / scale}
-          onJump={(x) => {
-            setDuration(0);
-            setPan(clampPan(viewport / 2 - x * scale));
-          }}
-        />
         <SpinOffGutter tier={tier} media={media} onOpen={(id) => setSelection({ kind: 'line', id })} />
         {atLeast(tier, 'premise') && <FocusedBadge selection={selection} />}
         <MapList tier={tier} media={media} order={order} visible={listVisible} />

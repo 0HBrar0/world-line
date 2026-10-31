@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { href, navigate, useRoute } from '../../app/router';
 import { readStore, writeStore } from '../../app/storage';
-import { TIER_ORDER, useSettings } from '../../app/settings';
+import { TIER_ORDER, useReduceMotion, useSettings } from '../../app/settings';
 import { Badge } from '../../components/Badge';
 import { formatDate } from '../../components/format';
 import { Nixie } from '../../components/Nixie';
@@ -15,6 +15,10 @@ import { MapCanvas } from '../map/MapCanvas';
 import { useViewport } from '../map/MapPage';
 import { eventTarget } from '../map/targets';
 import { MechanicPlayer } from '../mechanics/MechanicPlayer';
+import { GlassDock } from '../../components/GlassDock';
+import { spaceStops, supportsWebGL } from './spaceStops';
+
+const SpaceFlight = lazy(() => import('./SpaceFlight'));
 
 // Guided mode offers the matching explainer at these four story beats. Ids only.
 const INTERLUDES: Record<string, string> = {
@@ -24,7 +28,6 @@ const INTERLUDES: Record<string, string> = {
   'ev-0817-sern-deletion': 'attractor_field',
 };
 
-const SPEEDS = [0.5, 1, 1.5];
 const STORY_SCALE = 1.5;
 
 /** The text read out at a step: title, summary, what changed, then unlocked reveals. */
@@ -118,9 +121,14 @@ export function FollowPage() {
   const [interlude, setInterlude] = useState<string | null>(null);
   const host = useRef<HTMLDivElement>(null);
   const [hostWidth, setHostWidth] = useState(1000);
+  const [view, setView] = useState<'entity' | 'flight' | 'chart'>('entity');
+  const reduce = useReduceMotion();
+  const canFly = useMemo(() => !reduce && supportsWebGL(), [reduce]);
+  const space = canFly && view !== 'chart';
   const mobile = w < 768;
 
   const steps = useMemo(() => visibleEvents(tier, media, order), [tier, media, order]);
+  const stops = useMemo(() => spaceStops(steps, tier), [steps, tier]);
   const nextLocked = useMemo(() => {
     const later = eventsBySeq().filter((e) => e.media.some((m) => media.includes(m)) && !isVisible(e, tier));
     return later.length > 0 ? later.reduce((low, e) => (tierRank(e.spoilerTier) < tierRank(low) ? e.spoilerTier : low), later[0].spoilerTier) : null;
@@ -164,6 +172,9 @@ export function FollowPage() {
     return () => setFocusedLine(null);
   }, [event, tier, setFocusedLine]);
 
+  const readoutLine = event ? worldLineById(event.worldLineAfter ?? event.worldLineBefore ?? '') : undefined;
+  const readout = readoutLine && isVisible(readoutLine, tier) ? readoutLine.divergence : null;
+
   const text = event ? narration(event, tier) : null;
   const words = text ? `${text.title} ${text.summary} ${text.changed} ${text.reveals.join(' ')}`.split(/\s+/).length : 0;
 
@@ -199,9 +210,37 @@ export function FollowPage() {
   const offerInterlude = mechanic && isVisible(mechanic, tier);
 
   return (
-    <main id="main" className="page page-follow">
+    <main id="main" className={space ? 'page page-follow is-space' : 'page page-follow'}>
+      {space && (
+        <div className="space-stage" aria-hidden="true">
+          <Suspense fallback={null}>
+            <SpaceFlight key={view} view={view === 'flight' ? 'flight' : 'entity'} stops={stops} index={Math.min(index, Math.max(stops.length - 1, 0))} />
+          </Suspense>
+          {view === 'entity' && <div className="entity-eyes" />}
+        </div>
+      )}
+      {space && (
+        <div className="space-meter">
+          <Nixie value={readout} size="lg" />
+        </div>
+      )}
       <div className="follow-head row">
         <h1>Follow the story</h1>
+        {canFly && (
+          <div className="segmented" role="group" aria-label="View">
+            <button type="button" className="btn" aria-pressed={view === 'entity'} onClick={() => setView('entity')}>
+              Observer
+            </button>
+            <button type="button" className="btn" aria-pressed={view === 'flight'} onClick={() => setView('flight')}>
+              Flight
+            </button>
+            {!mobile && (
+              <button type="button" className="btn" aria-pressed={view === 'chart'} onClick={() => setView('chart')}>
+                Chart
+              </button>
+            )}
+          </div>
+        )}
         <div className="segmented" role="group" aria-label="Story order">
           <button type="button" className="btn" aria-pressed={order === 'seq'} onClick={() => setOrder('seq')}>
             Okabe's order
@@ -211,8 +250,8 @@ export function FollowPage() {
           </button>
         </div>
       </div>
-      <div className="follow-map" ref={host} aria-hidden="true" hidden={mobile}>
-        {!mobile && (
+      <div className="follow-map" ref={host} aria-hidden="true" hidden={mobile || space}>
+        {!mobile && !space && (
           <MapCanvas
             model={model}
             tier={tier}
@@ -269,37 +308,24 @@ export function FollowPage() {
             )}
           </div>
         )}
-        <div className="follow-controls row">
-          <button type="button" className="btn" aria-label="Back to start" onClick={() => go(0)}>
-            ⏮
-          </button>
-          <button type="button" className="btn" aria-label="Previous step" disabled={index === 0} onClick={() => go(index - 1)}>
-            ◀
-          </button>
-          <button type="button" className="btn btn-primary" aria-label={playing ? 'Pause' : 'Play'} onClick={() => setPlaying((p) => !p)}>
-            {playing ? '⏸' : '▶'}
-          </button>
-          <button type="button" className="btn" aria-label="Next step" disabled={index >= total - 1} onClick={() => go(index + 1)}>
-            ▶▶
-          </button>
-          <button type="button" className="btn" aria-label="Jump to end" onClick={() => go(total - 1)}>
-            ⏭
-          </button>
-          <label className="follow-speed">
-            Speed{' '}
-            <select value={speed} onChange={(e) => setSpeed(Number(e.target.value))}>
-              {SPEEDS.map((s) => (
-                <option key={s} value={s}>
-                  {s}×
-                </option>
-              ))}
-            </select>
-          </label>
-          <a className="btn btn-quiet" href={event ? href('map', { ev: event.id }) : href('map')}>
-            Open in map
-          </a>
-        </div>
+        <a className="btn btn-quiet follow-open" href={event ? href('map', { ev: event.id }) : href('map')}>
+          Open in map
+        </a>
       </section>
+      <GlassDock
+        className="glass-dock-follow"
+        label="Story player"
+        playing={playing}
+        canBack={index > 0}
+        canNext={index < total - 1}
+        pace={speed}
+        onTogglePlay={() => setPlaying((p) => !p)}
+        onBack={() => go(index - 1)}
+        onNext={() => go(index + 1)}
+        onStart={() => go(0)}
+        onEnd={() => go(total - 1)}
+        onPace={setSpeed}
+      />
       {interlude && <Interlude id={interlude} onClose={() => setInterlude(null)} />}
     </main>
   );

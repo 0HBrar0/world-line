@@ -35,7 +35,7 @@ for (const tier of ['premise', 'extras'] as Tier[]) {
 
 test('axe: source drawer and tier dialog', async ({ page }) => {
   await page.goto('/#/');
-  await page.locator('.badge').first().click();
+  await page.locator('.home-grid .badge').first().click();
   await expect(page.getByRole('dialog', { name: 'Sources' })).toBeVisible();
   await page.waitForTimeout(400);
   const { violations } = await new AxeBuilder({ page }).analyze();

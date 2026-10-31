@@ -97,6 +97,8 @@ function Shell() {
 
   useEffect(() => {
     document.title = `${TITLES[name] ?? 'Not found'} · World Line`;
+    document.body.dataset.page = name || 'home';
+    window.scrollTo(0, 0);
   }, [name]);
 
   useEffect(() => setLegendOpen(false), [name, setLegendOpen]);

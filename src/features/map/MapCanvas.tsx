@@ -105,6 +105,8 @@ interface CanvasProps {
   onHoverEdge: (edge: MapEdge | null, x: number, y: number) => void;
   onKeyDown: (e: ReactKeyboardEvent<SVGSVGElement>) => void;
   onPan: (panX: number) => void;
+  /** Called on every drag move; returns the pan the map may actually use. */
+  onPanLive?: (panX: number) => number;
   onZoomWheel: (factor: number, screenX: number) => void;
   onSgInfo: () => void;
 }
@@ -129,6 +131,7 @@ export function MapCanvas({
   onHoverEdge,
   onKeyDown,
   onPan,
+  onPanLive,
   onZoomWheel,
   onSgInfo,
 }: CanvasProps) {
@@ -137,6 +140,8 @@ export function MapCanvas({
   const world = useRef<SVGGElement>(null);
   const drag = useRef<{ startX: number; startPan: number; moved: boolean; latest: number } | null>(null);
   const moveDuration = reduce ? 0 : duration;
+  const panRef = useRef(panX);
+  panRef.current = panX;
   const gutterRef = useRef(model.gutter);
   gutterRef.current = model.gutter;
 
@@ -154,12 +159,12 @@ export function MapCanvas({
     const delta = e.clientX - d.startX;
     if (Math.abs(delta) > 4) d.moved = true;
     if (!d.moved) return;
-    d.latest = d.startPan + delta;
+    d.latest = onPanLive ? onPanLive(d.startPan + delta) : d.startPan + delta;
     if (world.current) {
       world.current.style.transitionDuration = '0s';
       world.current.style.transform = `translateX(${d.latest + gutterRef.current}px)`;
     }
-  }, []);
+  }, [onPanLive]);
   const onPointerUp = useCallback(() => {
     const d = drag.current;
     drag.current = null;
@@ -171,12 +176,17 @@ export function MapCanvas({
     if (!el || !interactive) return;
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
+      // A sideways swipe moves along the timeline; only an up or down scroll zooms.
+      if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) {
+        onPan(panRef.current - e.deltaX);
+        return;
+      }
       const rect = el.getBoundingClientRect();
       onZoomWheel(e.deltaY < 0 ? 1.15 : 1 / 1.15, e.clientX - rect.left);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     return () => el.removeEventListener('wheel', onWheel);
-  }, [interactive, onZoomWheel]);
+  }, [interactive, onPan, onZoomWheel]);
 
   const modelRef = useRef(model);
   modelRef.current = model;

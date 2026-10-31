@@ -18,7 +18,7 @@ A static, animated, interactive web app that explains the Steins;Gate and Steins
 - `sortDate` with `sortDateIsEditorial: true` is an ordering key, never a displayed date.
 
 ## No copyrighted assets
-No official art, screenshots, logos, character likenesses, music, voice or script text. Original abstract visuals only (monogram glyphs, Nixie digits, lines, icons). Fonts are self-hosted OFL fonts.
+No official art, screenshots, logos, character likenesses, music, voice or script text, with one exception: character pictures the owner adds to `src/assets/characters/` appear on the character tiles and pages. Everywhere else, original abstract visuals only (monogram glyphs, Nixie digits, lines, icons). Fonts are self-hosted OFL fonts.
 
 ## Stack
 Vite + React 18 + TypeScript (strict) · SVG + Framer Motion · Zod (schema mirrors canon.json) · Vitest + Testing Library · ESLint (typescript-eslint, react-hooks, jsx-a11y) · Playwright (screenshots at 1440×900 and 390×844, keyboard flows). Static site, hash routing, no backend, no runtime network requests.

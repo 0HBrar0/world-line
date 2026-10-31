@@ -224,9 +224,6 @@ a.tile:hover { border-color: var(--nixie); }
 .follow-count { color: var(--nixie); margin: 0; font-size: 0.85rem; }
 .follow-changed { border-left: 3px solid var(--nixie); padding-left: 8px; }
 .follow-reveal { color: var(--ink-1); font-style: italic; }
-.follow-controls { padding-top: 6px; border-top: 1px solid var(--grid); }
-.follow-speed { font-size: 0.85rem; color: var(--ink-1); }
-.follow-speed select { background: var(--bg-2); color: var(--ink-0); border: 1px solid #4a5763; border-radius: 4px; min-height: 32px; }
 .wall-card { padding: 8px 0; }
 .interlude-layer { align-items: center; justify-content: center; padding: 16px; }
 .interlude { width: min(860px, 100%); max-height: 94vh; overflow-y: auto; background: var(--bg-2); border: 1px solid #4a5763; border-radius: 10px; padding: 14px; }
@@ -234,9 +231,6 @@ a.tile:hover { border-color: var(--nixie); }
 .interlude-head h2 { margin: 0; }
 @media (max-width: 767px) {
   .page-follow { padding-bottom: 96px; }
-  .follow-controls { position: fixed; left: 0; right: 0; bottom: 0; z-index: 25; padding: 8px; background: var(--bg-2); border-top: 1px solid #4a5763; justify-content: center; }
-  .follow-controls .btn { min-width: 44px; min-height: 44px; padding: 4px 8px; }
-  .follow-speed, .follow-controls .btn-quiet { display: none; }
 }
 
 /* Compare */
