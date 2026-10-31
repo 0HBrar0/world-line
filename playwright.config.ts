@@ -9,7 +9,13 @@ export default defineConfig({
   workers: 4,
   timeout: 45_000,
   reporter: [['line']],
-  use: { baseURL: 'http://localhost:4173', trace: 'off', screenshot: 'off' },
+  use: {
+    baseURL: 'http://localhost:4173',
+    trace: 'off',
+    screenshot: 'off',
+    // Every test starts past the first-visit device notice; device-notice.spec.ts covers it.
+    storageState: { cookies: [], origins: [{ origin: 'http://localhost:4173', localStorage: [{ name: 'wl.deviceNotice', value: 'true' }] }] },
+  },
   projects: [
     { name: 'desktop', use: { viewport: { width: 1440, height: 900 } } },
     { name: 'mobile', use: { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true } },

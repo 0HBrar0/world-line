@@ -339,7 +339,7 @@ export function createCosmos(renderer: THREE.WebGLRenderer, scene: THREE.Scene, 
         { at: new THREE.Vector3(-640, 110, -620), radius: 92, kind: 'gas', colors: ['#9a5a34', '#d8a468', '#f0dcb4'], air: '#ffb070', ring: true },
         { at: new THREE.Vector3(660, -70, -560), radius: 58, kind: 'earth', colors: ['#1c4a6a', '#2e7a5a', '#c9b48a'], air: '#58a8ff' },
         { at: new THREE.Vector3(1060, 260, -900), radius: 128, kind: 'ice', colors: ['#3a5a8a', '#7fb0d0', '#d8ecf4'], air: '#7fd0ff' },
-        { at: new THREE.Vector3(450, 60, -700), radius: 46, kind: 'rock', colors: ['#5a2a24', '#a4502e', '#d89a68'], air: '#ff8050' },
+        { at: new THREE.Vector3(430, 70, -700), radius: 64, kind: 'rock', colors: ['#5a2a24', '#a4502e', '#d89a68'], air: '#ff8050' },
         { at: new THREE.Vector3(130, 250, -1020), radius: 44, kind: 'gas', colors: ['#3e2a6a', '#8050b0', '#d0a8e0'], air: '#b080ff' },
       ]
     : Array.from({ length: 7 }, (_, k) => {

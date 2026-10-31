@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-import type { OddityId } from './oddities';
+import { marsCamp } from './marsCamp';
+import type { MarsTaskId, OddityId } from './oddities';
 
 // Things around Earth, all built from plain shapes: a space station, small satellites, and (a prototype)
 // household objects that float up off the planet and fade out in space. None of it carries story content.
@@ -173,34 +174,6 @@ function rocketBody() {
   return group;
 }
 
-/** A very small camp on Mars: a shed, a parked rocket, and a man in a suit hammering at a crate. */
-function marsCamp() {
-  const group = new THREE.Group();
-  const suit = soft('#f2f2f4');
-  const dark = soft('#23262e');
-  const man = new THREE.Group();
-  man.add(tube(0.05, 0.3, suit, [-0.06, 0.15, 0]), tube(0.05, 0.3, suit, [0.06, 0.15, 0]), tube(0.12, 0.36, suit, [0, 0.46, 0]), tube(0.035, 0.32, suit, [-0.16, 0.48, 0]));
-  const helmet = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 10), suit);
-  helmet.position.y = 0.74;
-  const visor = new THREE.Mesh(new THREE.SphereGeometry(0.075, 12, 8), metal('#d9a53c', 0.5));
-  visor.position.set(0, 0.74, 0.05);
-  man.add(helmet, visor);
-  const arm = new THREE.Group();
-  arm.position.set(0.15, 0.62, 0);
-  const reach = tube(0.035, 0.32, suit, [0.15, 0, 0]);
-  reach.rotation.z = Math.PI / 2;
-  arm.add(reach, tube(0.018, 0.3, dark, [0.32, 0.1, 0]), box(0.16, 0.08, 0.08, metal('#c9ccd4'), [0.32, 0.24, 0]));
-  man.add(arm);
-  group.add(box(0.34, 0.2, 0.3, soft('#b98a4e'), [0.62, 0.1, 0]));
-  const shed = new THREE.Mesh(new THREE.SphereGeometry(0.42, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2), metal('#c9ccd4', 0.2));
-  shed.position.set(-0.62, -0.05, -0.1);
-  const ship = rocketBody();
-  ship.scale.setScalar(0.62);
-  ship.position.set(1, 0.32, -0.2);
-  group.add(shed, ship, man);
-  return { group, man, arm };
-}
-
 const MAKERS: Array<[Exclude<OddityId, 'rocket' | 'elon'>, () => THREE.Group]> = [
   ['lamp', lamp],
   ['garbageBag', garbageBag],
@@ -218,6 +191,7 @@ function addGlow(shape: THREE.Group, texture: THREE.Texture, color: string) {
   const glow = new THREE.Group();
   shape.children.forEach((part) => {
     const mesh = part as THREE.Mesh;
+    if (!mesh.isMesh) return;
     const hull = new THREE.Mesh(mesh.geometry, shell);
     hull.position.copy(mesh.position);
     hull.quaternion.copy(mesh.quaternion);
@@ -307,6 +281,10 @@ export interface Orbiters {
   positionOf: (id: 'drifter' | 'rocket' | 'mars') => THREE.Vector3 | null;
   /** Mars on screen, if the pointer is over it. */
   marsAt: (x: number, y: number, rect: DOMRect, camera: THREE.Camera) => { x: number; y: number; r: number } | null;
+  /** Sets what he is doing; null puts him back to hammering. */
+  marsJob: (id: MarsTaskId | null, now: number) => void;
+  /** Where an onlooker's eye and gaze belong for a close look at the camp. */
+  marsEye: (now: number, eye: THREE.Vector3, target: THREE.Vector3, up: THREE.Vector3) => void;
 }
 
 export function createOrbiters(scene: THREE.Scene, center: THREE.Vector3, radius: number, random: () => number, glowTexture: THREE.Texture, mars?: { at: THREE.Vector3; radius: number }): Orbiters {
@@ -382,8 +360,8 @@ export function createOrbiters(scene: THREE.Scene, center: THREE.Vector3, radius
   const nozzle = new THREE.Vector3();
 
   const elon = { id: 'elon' as const };
-  const camp = mars ? marsCamp() : null;
-  const campGlow = camp ? addGlow(camp.man, glowTexture, '#ffc27a') : null;
+  const camp = mars ? marsCamp(rocketBody(), glowTexture) : null;
+  const campGlow = camp ? addGlow(camp.body, glowTexture, '#ffc27a') : null;
   const elonAt = new THREE.Vector3();
   let elonBackAt = 0;
   if (camp && mars) {
@@ -492,7 +470,7 @@ export function createOrbiters(scene: THREE.Scene, center: THREE.Vector3, radius
         if (!camp.man.visible && now > elonBackAt) camp.man.visible = true;
         const aimed = hovered === elon || held === elon;
         campGlow!.visible = aimed;
-        if (!aimed) camp.arm.rotation.z = -0.5 + Math.abs(Math.sin(now * 0.0035)) * 1.1;
+        if (!aimed) camp.update(now);
       }
       sparks.update(seconds);
       for (let i = flying.length - 1; i >= 0; i -= 1) {
@@ -569,6 +547,18 @@ export function createOrbiters(scene: THREE.Scene, center: THREE.Vector3, radius
       return null;
     },
     launchRocket,
+    marsJob(id, now) {
+      camp?.setJob(id, now);
+    },
+    marsEye(now, eye, target, up) {
+      if (!camp) return;
+      // A slow sway, like something large holding its breath to watch.
+      eye.set(0.22 + Math.sin(now * 0.00031) * 0.3, 0.95 + Math.sin(now * 0.00047) * 0.07, 2.75 + Math.cos(now * 0.00023) * 0.14);
+      target.set(0.14, 0.3, 0);
+      camp.group.localToWorld(eye);
+      camp.group.localToWorld(target);
+      up.set(0, 1, 0).transformDirection(camp.group.matrixWorld);
+    },
     marsAt(x, y, rect, camera) {
       if (!mars) return null;
       probe.copy(mars.at).project(camera);

@@ -385,6 +385,10 @@ body[data-doom] .follow-head > *, body[data-doom] .space-meter { animation: doom
 body[data-doom] .topbar { animation: doom-fade 1.8s 1s ease forwards; }
 @keyframes doom-fall { to { opacity: 0; translate: 0 90vh; rotate: var(--tumble); } }
 @keyframes doom-fade { to { opacity: 0; } }
+.device-notice-back { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 16px; background: rgba(0, 0, 0, 0.55); }
+.device-notice { width: min(420px, 100%); padding: 24px; border-radius: 20px; color: #fff; background: rgba(24, 22, 34, 0.94); border: 1px solid rgba(255, 255, 255, 0.16); }
+.device-notice h2 { margin: 0 0 10px; font: italic 400 1.7rem/1.15 var(--font-display); }
+.device-notice p { margin: 0 0 18px; line-height: 1.5; }
 .world-lost {
   position: fixed; inset: 0; z-index: 200; display: grid; place-items: center; background: #050000; color: #ff3b3b;
   animation: lost-in 0.9s ease-out; transition: opacity 1s ease;

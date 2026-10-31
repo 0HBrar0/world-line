@@ -2,10 +2,10 @@ import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouse
 import { createPortal } from 'react-dom';
 import { useSettings } from '../../app/settings';
 import { readStore } from '../../app/storage';
-import { createFlight, type Flight, type FlightView } from './flight';
+import { createFlight, type Flight, type FlightView, type MarsView } from './flight';
 import { ODDITIES, pickLine, type OddityId } from './oddities';
 import type { Oddity } from './orbiters';
-import { MarsCloseUp, MarsHint } from './MarsCloseUp';
+import { MarsCaption, MarsHint } from './MarsView';
 import type { SpaceStop } from './spaceStops';
 import { WorldLost } from './WorldLost';
 
@@ -42,22 +42,37 @@ export default function SpaceFlight({ stops, index, view, onHover, onPick, onWhe
   const [lost, setLost] = useState(false);
   const [world, setWorld] = useState(0);
   const [overMars, setOverMars] = useState<{ x: number; y: number } | null>(null);
-  const [closeUp, setCloseUp] = useState<{ x: number; y: number; r: number } | null>(null);
+  const [mars, setMars] = useState<MarsView | null>(null);
 
   useEffect(() => {
     if (!canvas.current || stops.length === 0) return;
-    const created = createFlight(canvas.current, stops, latest.current, view, latestPrefs.current, () => setLost(true));
+    const created = createFlight(canvas.current, stops, latest.current, view, latestPrefs.current, () => setLost(true), setMars);
     flight.current = created;
     // Local 3D tests reach the scene here; this flag is never set for real visitors.
     if (readStore('wl.force3d', 0)) (window as unknown as { worldLineFlight: Flight }).worldLineFlight = created;
     return () => {
       flight.current = null;
+      setMars(null);
       created.dispose();
     };
   }, [stops, view, world]);
 
   useEffect(() => flight.current?.goTo(index), [index]);
   useEffect(() => flight.current?.configure(prefs), [prefs]);
+
+  const nearMars = !!mars;
+  useEffect(() => {
+    if (!nearMars) return;
+    document.body.dataset.mars = 'true';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') flight.current?.leaveMars();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      delete document.body.dataset.mars;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [nearMars]);
 
   const closeNote = useCallback(() => {
     setNote(null);
@@ -85,8 +100,8 @@ export default function SpaceFlight({ stops, index, view, onHover, onPick, onWhe
   const finish = useCallback(() => setLost(false), []);
 
   const point = (e: ReactPointerEvent<HTMLCanvasElement>) => {
-    const mars = flight.current?.marsAt(e.clientX, e.clientY) ?? null;
-    setOverMars((was) => (!mars ? null : was && Math.hypot(was.x - mars.x, was.y - mars.y) < 12 ? was : { x: mars.x, y: mars.y + mars.r + 10 }));
+    const planet = flight.current?.marsAt(e.clientX, e.clientY) ?? null;
+    setOverMars((was) => (!planet ? null : was && Math.hypot(was.x - planet.x, was.y - planet.y) < 12 ? was : { x: planet.x, y: planet.y + planet.r + 10 }));
     const thing = flight.current?.objectAt(e.clientX, e.clientY) ?? null;
     flight.current?.highlight(thing);
     const star = thing ? null : (flight.current?.starAt(e.clientX, e.clientY) ?? null);
@@ -112,10 +127,9 @@ export default function SpaceFlight({ stops, index, view, onHover, onPick, onWhe
         className="space-canvas"
         onPointerMove={point}
         onWheel={(e) => {
-          const mars = e.deltaY < 0 ? flight.current?.marsAt(e.clientX, e.clientY) : null;
-          if (mars) {
+          if (flight.current?.marsWheel(e.deltaY, e.clientX, e.clientY)) {
             setOverMars(null);
-            setCloseUp(mars);
+            setNote(null);
           } else {
             onWheel(e.deltaY);
           }
@@ -156,8 +170,8 @@ export default function SpaceFlight({ stops, index, view, onHover, onPick, onWhe
           </div>,
           document.body,
         )}
-      {overMars && !closeUp && <MarsHint x={overMars.x} y={overMars.y} />}
-      {closeUp && <MarsCloseUp from={closeUp} onClose={() => setCloseUp(null)} />}
+      {overMars && !mars && <MarsHint x={overMars.x} y={overMars.y} />}
+      {mars?.job && <MarsCaption job={mars.job} onLeave={() => flight.current?.leaveMars()} />}
       {lost && <WorldLost onRebuild={rebuild} onDone={finish} />}
     </>
   );

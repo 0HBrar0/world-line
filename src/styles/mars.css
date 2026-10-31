@@ -1,124 +1,22 @@
-/* The Mars close-up: opens as a circle growing out of the planet, and closes back into it */
-.mars-close {
-  position: fixed;
-  inset: 0;
-  z-index: 950;
-  background: #1a0d1c;
-  overflow: hidden;
-  animation: mars-open 900ms cubic-bezier(0.7, 0, 0.2, 1) both;
-}
-.mars-close.is-leaving { animation: mars-shut 620ms cubic-bezier(0.7, 0, 0.6, 1) both; }
-@keyframes mars-open { from { clip-path: circle(var(--r) at var(--x) var(--y)); } to { clip-path: circle(150vmax at var(--x) var(--y)); } }
-@keyframes mars-shut { from { clip-path: circle(150vmax at var(--x) var(--y)); } to { clip-path: circle(var(--r) at var(--x) var(--y)); } }
-
-.mars-stage { position: absolute; inset: 0; animation: mars-scene 700ms ease both; }
-@keyframes mars-scene { from { opacity: 0; scale: 1.05; } }
-.mars-art { display: block; width: 100%; height: 100%; }
-.mars-star { animation: mars-twinkle 4s ease-in-out infinite alternate; }
-.mars-star:nth-child(3n) { animation-delay: -2s; }
-@keyframes mars-twinkle { to { opacity: 0.35; } }
-.mars-dust { animation: mars-dust 16s linear infinite; }
-.mars-dust-1 { animation-delay: -6s; }
-.mars-dust-2 { animation-delay: -11s; }
-@keyframes mars-dust { from { transform: translateX(-950px); } to { transform: translateX(1650px); } }
-
-.mars-words { position: absolute; left: clamp(20px, 5vw, 72px); top: clamp(76px, 12vh, 120px); max-width: min(460px, calc(100vw - 40px)); color: #fff; text-shadow: 0 1px 14px rgba(0, 0, 0, 0.55); animation: mars-words 800ms 300ms ease both; }
+/* Over the live Mars scene: clear words on the picture, with nothing panelled in front of it */
+.mars-caption { position: fixed; inset: 0; z-index: 45; pointer-events: none; color: #fff; text-shadow: 0 1px 12px rgba(0, 0, 0, 0.75); }
+.mars-words { position: absolute; left: clamp(20px, 5vw, 72px); top: clamp(24px, 7vh, 64px); max-width: min(440px, calc(100vw - 40px)); animation: mars-words 700ms ease both; }
 @keyframes mars-words { from { opacity: 0; translate: 0 14px; } }
 .mars-kicker { display: block; font: 500 0.78rem var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: #ffc98f; margin-bottom: 8px; }
-.mars-words strong { display: block; font: italic 400 clamp(2rem, 4.4vw, 3.3rem)/1.08 var(--font-display); }
-.mars-words p { margin: 12px 0 0; font-size: 1.05rem; line-height: 1.45; }
-.mars-keys { position: absolute; left: 50%; bottom: 22px; translate: -50% 0; margin: 0; color: #fff; opacity: 0.8; font-size: 0.85rem; text-shadow: 0 1px 8px #000; white-space: nowrap; }
-.mars-back { position: absolute; right: 24px; top: 20px; }
+.mars-words strong { display: block; font: italic 400 clamp(1.8rem, 3.6vw, 2.8rem)/1.08 var(--font-display); }
+.mars-words p { margin: 10px 0 0; font-size: 1rem; line-height: 1.45; }
+.mars-keys { position: absolute; left: 50%; bottom: 20px; translate: -50% 0; margin: 0; opacity: 0.8; font-size: 0.85rem; white-space: nowrap; }
+.mars-back { position: absolute; right: 24px; top: 20px; pointer-events: auto; }
 
-.mars-hint { position: fixed; z-index: 60; translate: -50% 0; display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; color: #fff; pointer-events: none; font-size: 0.8rem; text-shadow: 0 1px 8px #000; animation: mars-hint-in 220ms ease both; }
+/* The page steps aside while the camera is on its way to Mars */
+body[data-mars] .follow-card, body[data-mars] .glass-dock, body[data-mars] .follow-head > *, body[data-mars] .space-meter, body[data-mars] .topbar { opacity: 0; pointer-events: none; }
+.follow-card, .glass-dock, .follow-head > *, .space-meter, .topbar { transition: opacity 500ms ease; }
+
+.mars-hint { position: fixed; z-index: 60; translate: -50% 0; display: flex; align-items: center; gap: 8px; color: #fff; pointer-events: none; font-size: 0.8rem; white-space: nowrap; text-shadow: 0 1px 8px #000; animation: mars-hint-in 220ms ease both; }
 @keyframes mars-hint-in { from { opacity: 0; translate: -50% 6px; } }
 .mars-hint-wheel { animation: mars-wheel 1.3s ease-in-out infinite; }
 @keyframes mars-wheel { 0% { transform: translateY(8px); opacity: 0; } 30% { opacity: 1; } 75% { opacity: 1; } 100% { transform: translateY(-3px); opacity: 0; } }
 
-/* Digging: the shovel bites and throws, the dirt flies, the pile grows, the bags hop in */
-.m-shovel { animation: m-shovel 1.8s ease-in-out infinite; }
-@keyframes m-shovel { 0%, 100% { transform: rotate(-26deg); } 45% { transform: rotate(16deg); } 60% { transform: rotate(16deg); } }
-.m-dirt { opacity: 0; animation: m-dirt 1.8s ease-out infinite; }
-.m-dirt-1 { animation-delay: 0.07s; --lift: -240px; --go: 230px; }
-.m-dirt-2 { animation-delay: 0.14s; --lift: -190px; --go: 280px; }
-.m-dirt-3 { animation-delay: 0.21s; --lift: -280px; --go: 190px; }
-.m-dirt-4 { animation-delay: 0.28s; --lift: -210px; --go: 310px; }
-@keyframes m-dirt {
-  0%, 12% { opacity: 0; transform: translate(0, 0); }
-  16% { opacity: 1; }
-  40% { transform: translate(calc(var(--go, 250px) * 0.5), var(--lift, -260px)); }
-  62% { opacity: 1; }
-  66%, 100% { opacity: 0; transform: translate(var(--go, 250px), -20px); }
-}
-.m-mound { transform-origin: 0 0; animation: m-mound 18s ease-out infinite alternate; }
-@keyframes m-mound { from { transform: scale(0.6, 0.45); } to { transform: scale(1.2, 1.25); } }
-.m-bag { animation: m-bag 6s ease-in infinite; }
-.m-bag-2 { animation-delay: -3s; }
-@keyframes m-bag {
-  0%, 12% { opacity: 0; transform: translate(70px, 0); }
-  18%, 44% { opacity: 1; transform: translate(0, 0) rotate(0); }
-  52% { transform: translate(-46px, -74px) rotate(-14deg); }
-  60% { transform: translate(-100px, -30px) rotate(-30deg); opacity: 1; }
-  68%, 100% { opacity: 0; transform: translate(-130px, 50px) rotate(-46deg) scale(0.75); }
-}
-
-/* Rolling: the sheet closes up, the tip lights, and the smoke has nowhere to go but the helmet */
-.m-roll-arm { animation: m-roll-arm 0.7s ease-in-out 7 alternate, m-rest-arm 10s 4.9s ease-in-out infinite; transform: rotate(9deg); }
-@keyframes m-roll-arm { from { transform: rotate(4deg); } to { transform: rotate(13deg); } }
-@keyframes m-rest-arm { 0%, 100% { transform: rotate(9deg); } 50% { transform: rotate(-24deg); } }
-.m-sheet { animation: m-sheet 10s ease-in-out infinite; }
-@keyframes m-sheet { 0% { transform: scaleY(1); opacity: 1; } 36% { transform: scaleY(0.24); opacity: 1; } 40%, 92% { transform: scaleY(0.2); opacity: 0; } 100% { transform: scaleY(1); opacity: 0; } }
-.m-blunt { animation: m-blunt 10s ease-in-out infinite; }
-@keyframes m-blunt { 0%, 36% { opacity: 0; } 40%, 92% { opacity: 1; } 100% { opacity: 0; } }
-.m-ember { animation: m-ember 10s linear infinite; }
-@keyframes m-ember { 0%, 44% { opacity: 0; } 48%, 56%, 66%, 76%, 90% { opacity: 1; } 52%, 61%, 71%, 83% { opacity: 0.45; } 94%, 100% { opacity: 0; } }
-.m-puff { opacity: 0; animation: m-puff 3s ease-out infinite; }
-.m-puff-1 { animation-delay: 0.7s; }
-.m-puff-2 { animation-delay: 1.4s; }
-.m-puff-3 { animation-delay: 2.1s; }
-@keyframes m-puff { 0% { opacity: 0; transform: translate(0, 0) scale(0.4); } 20% { opacity: 0.6; } 100% { opacity: 0; transform: translate(60px, -180px) scale(1.9); } }
-.m-fog { animation: m-fog 10s ease-in infinite; }
-@keyframes m-fog { 0%, 52% { opacity: 0; } 88% { opacity: 0.92; } 96% { opacity: 0.92; } 100% { opacity: 0; } }
-
-/* Stacking: he adds a layer, the pile climbs, and the wind takes it all */
-.m-place { animation: m-place 1.3s ease-in-out infinite; }
-@keyframes m-place { 0%, 100% { transform: rotate(-30deg); } 50% { transform: rotate(4deg); } }
-.m-layer { opacity: 0; animation: m-layer 12s ease-out infinite; }
-.m-layer-1 { animation-delay: 0.7s; } .m-layer-2 { animation-delay: 1.4s; } .m-layer-3 { animation-delay: 2.1s; }
-.m-layer-4 { animation-delay: 2.8s; } .m-layer-5 { animation-delay: 3.5s; } .m-layer-6 { animation-delay: 4.2s; }
-.m-layer-7 { animation-delay: 4.9s; } .m-layer-8 { animation-delay: 5.6s; }
-@keyframes m-layer {
-  0% { opacity: 0; transform: translateY(calc(var(--up) - 30px)); }
-  3%, 40% { opacity: 1; transform: translateY(var(--up)); }
-  52%, 100% { opacity: 0; transform: translate(460px, calc(var(--up) - 150px)) rotate(26deg); }
-}
-.m-blown { opacity: 0; animation: m-blown 12s ease-in infinite; }
-.m-blown-1 { animation-delay: 0.35s; } .m-blown-2 { animation-delay: 0.7s; }
-.m-blown-3 { animation-delay: 1.05s; } .m-blown-4 { animation-delay: 1.4s; } .m-blown-5 { animation-delay: 1.75s; }
-@keyframes m-blown {
-  0%, 46% { opacity: 0; transform: translate(0, 0) rotate(0); }
-  48% { opacity: 1; }
-  66% { opacity: 1; transform: translate(420px, -170px) rotate(240deg); }
-  76%, 100% { opacity: 0; transform: translate(780px, -290px) rotate(520deg); }
-}
-
-/* Renaming: blocks fall out of the sky into one enormous letter, and he directs them with great confidence */
-.m-block { opacity: 0; animation: m-block 11s cubic-bezier(0.3, 0, 0.3, 1) infinite; }
-@keyframes m-block {
-  0% { opacity: 0; transform: translateY(-620px) rotate(-30deg); }
-  2% { opacity: 1; }
-  9% { opacity: 1; transform: translateY(0); }
-  11% { transform: translateY(-16px); }
-  13%, 70% { opacity: 1; transform: translateY(0); }
-  76%, 100% { opacity: 0; transform: translateY(0); }
-}
-.m-hop { animation: m-hop 0.9s ease-in-out infinite; }
-@keyframes m-hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-22px); } }
-.m-point { animation: m-point 0.9s ease-in-out infinite; }
-@keyframes m-point { 0%, 100% { transform: rotate(-16deg); } 50% { transform: rotate(-52deg); } }
-
 @media (prefers-reduced-motion: reduce) {
-  .mars-close, .mars-close.is-leaving, .mars-stage, .mars-words, .mars-hint, .mars-hint-wheel,
-  .mars-star, .mars-dust, [class^='m-'], [class*=' m-'] { animation: none; }
-  .m-layer, .m-block, .m-bag { opacity: 1; }
+  .mars-words, .mars-hint, .mars-hint-wheel { animation: none; }
 }

@@ -86,7 +86,7 @@ test('a floating object tells its story and a rocket ends the world, briefly', a
   await expect(page.locator('.space-canvas')).toBeVisible();
 });
 
-test('scrolling up on Mars opens a scene of the man who lives there', async ({ page }, info) => {
+test('scrolling up on Mars carries the camera down to watch him', async ({ page }, info) => {
   test.skip(!!process.env.CI, 'needs local 3D');
   test.skip(info.project.name === 'mobile', 'pointing needs a mouse');
   test.setTimeout(150_000);
@@ -103,14 +103,19 @@ test('scrolling up on Mars opens a scene of the man who lives there', async ({ p
     await page.mouse.move(man.x, man.y + 34);
     await expect(page.locator('.mars-hint')).toBeVisible({ timeout: 3000 });
     await page.mouse.wheel(0, -120);
-    await expect(page.locator('.mars-close')).toBeVisible({ timeout: 3000 });
+    await expect(page.locator('.mars-hint')).toHaveCount(0, { timeout: 3000 });
   }).toPass({ timeout: 90_000 });
 
-  const first = await page.locator('.mars-words strong').innerText();
-  await page.waitForTimeout(900);
   await page.mouse.wheel(0, -120);
-  await expect(page.locator('.mars-words strong')).not.toHaveText(first);
-  await page.waitForTimeout(900);
-  await page.mouse.wheel(0, 120);
-  await expect(page.locator('.mars-close')).toHaveCount(0, { timeout: 5000 });
+  await page.mouse.wheel(0, -120);
+  await page.mouse.wheel(0, -120);
+  await expect(page.locator('.mars-words strong')).toBeVisible({ timeout: 60_000 });
+  await expect(page.locator('.space-canvas')).toBeVisible();
+  const first = await page.locator('.mars-words strong').innerText();
+  await expect(async () => {
+    await page.mouse.wheel(0, -120);
+    await expect(page.locator('.mars-words strong')).not.toHaveText(first, { timeout: 2000 });
+  }).toPass({ timeout: 40_000 });
+  await page.getByRole('button', { name: 'Back to space' }).click();
+  await expect(page.locator('.mars-words')).toHaveCount(0, { timeout: 5000 });
 });

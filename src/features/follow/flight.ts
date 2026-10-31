@@ -8,6 +8,7 @@ import { createMarkers } from './markers';
 import type { Oddity } from './orbiters';
 import { createRupture } from './rupture';
 import type { Prefs } from '../../app/settings';
+import { MARS_TASKS, type MarsTaskId } from './oddities';
 import type { SpaceStop } from './spaceStops';
 
 const SPACING = 26;
@@ -102,6 +103,12 @@ function warpStreaks(random: () => number) {
   return new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({ color: '#cfe0ff', opacity: 0, ...additive }));
 }
 
+/** How close the camera is to Mars, for the page around the scene. */
+export interface MarsView {
+  /** The job in view, once the camera has arrived. */
+  job: MarsTaskId | null;
+}
+
 export interface Flight {
   goTo: (index: number) => void;
   /** The star nearest a screen position, or null when none is close. */
@@ -120,6 +127,9 @@ export interface Flight {
   /** An object's place on screen, for local tests. */
   pointOf: (id: 'drifter' | 'rocket' | 'mars') => { x: number; y: number } | null;
   marsAt: (clientX: number, clientY: number) => { x: number; y: number; r: number } | null;
+  /** A wheel move: goes closer to Mars or back. False if it had nothing to do with Mars. */
+  marsWheel: (deltaY: number, clientX: number, clientY: number) => boolean;
+  leaveMars: () => void;
   /** Applies Settings changes to the running scene. */
   configure: (prefs: Prefs) => void;
   dispose: () => void;
@@ -127,7 +137,14 @@ export interface Flight {
 
 export type FlightView = 'entity' | 'flight';
 
-export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], startIndex: number, view: FlightView, startPrefs: Prefs, onBroken: () => void): Flight {
+const MARS_EASE = 1.5;
+const MARS_FOV = 40;
+const MARS_WHEEL_STEP = 0.34;
+const MARS_JOB_FROM = 0.3;
+const MARS_WORDS_FROM = 0.85;
+const MARS_JOB_REST_MS = 900;
+
+export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], startIndex: number, view: FlightView, startPrefs: Prefs, onBroken: () => void, onMars: (view: MarsView | null) => void): Flight {
   const random = seeded(2010);
   const entity = view === 'entity';
   const scale = entity ? ENTITY_SCALE : 1;
@@ -301,6 +318,45 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
     shockAt = now;
   };
 
+  // Going to Mars: the camera leaves wherever the head is looking and is carried in. Any distance is a place to stop.
+  let marsWanted = 0;
+  let marsNear = 0;
+  let marsTask = 0;
+  let marsJobOn = false;
+  let marsNextJobAt = 0;
+  let marsShown = '';
+  const marsEye = new THREE.Vector3();
+  const marsGaze = new THREE.Vector3();
+  const marsPose = new THREE.PerspectiveCamera();
+  const marsFrom = new THREE.Quaternion();
+  const flyToMars = (now: number, seconds: number) => {
+    marsNear += (marsWanted - marsNear) * Math.min(1, seconds * MARS_EASE);
+    if (marsNear < 0.002 && marsWanted === 0) marsNear = 0;
+    const seen = marsNear > MARS_JOB_FROM;
+    if (seen !== marsJobOn) {
+      marsJobOn = seen;
+      cosmos.orbiters?.marsJob(seen ? MARS_TASKS[marsTask].id : null, now);
+    }
+    const job = marsNear > MARS_WORDS_FROM && marsWanted > MARS_WORDS_FROM ? MARS_TASKS[marsTask].id : null;
+    const shown = marsNear === 0 && marsWanted === 0 ? '' : `on${job ?? ''}`;
+    if (shown !== marsShown) {
+      marsShown = shown;
+      onMars(shown ? { job } : null);
+    }
+    if (marsNear === 0) return;
+    cosmos.orbiters?.marsEye(now, marsEye, marsGaze, marsPose.up);
+    // Most of the trip is covered early, so the last stretch is a slow settling-in beside him.
+    const travel = 1 - (1 - marsNear) ** 3;
+    marsFrom.copy(camera.quaternion);
+    marsPose.position.copy(camera.position);
+    marsPose.lookAt(marsGaze);
+    camera.position.lerp(marsEye, travel);
+    marsPose.position.copy(camera.position);
+    marsPose.lookAt(marsGaze);
+    camera.quaternion.slerpQuaternions(marsFrom, marsPose.quaternion, THREE.MathUtils.smoothstep(marsNear, 0, 0.45));
+    camera.fov = THREE.MathUtils.lerp(camera.fov, MARS_FOV, travel);
+  };
+
   const render = (now: number) => {
     frame = requestAnimationFrame(render);
     if (document.hidden) return;
@@ -338,6 +394,7 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
       focus += ((trip.arrived ? 1 : 0) - focus) * Math.min(1, seconds * 1.4);
       camera.fov = ENTITY_FOV - focus * 7 + surge * 5;
       beacon.position.copy(look);
+      flyToMars(now, seconds);
     } else {
       const distance = 13 / length;
       const drift = Math.sin(now * 0.00025);
@@ -401,6 +458,7 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
 
   return {
     starAt(clientX, clientY) {
+      if (marsNear > 0.02) return null;
       const rect = canvas.getBoundingClientRect();
       let nearest: number | null = null;
       let best = PICK_PX;
@@ -419,11 +477,36 @@ export function createFlight(canvas: HTMLCanvasElement, stops: SpaceStop[], star
       hovered = next;
     },
     objectAt(clientX, clientY) {
-      if (doomedAt !== null) return null;
+      if (doomedAt !== null || marsNear > 0.02) return null;
       return cosmos.orbiters?.pickAt(clientX, clientY, canvas.getBoundingClientRect(), camera) ?? null;
     },
+    marsWheel(deltaY, clientX, clientY) {
+      if (doomedAt !== null || !entity) return false;
+      const going = marsWanted > 0 || marsNear > 0.02;
+      if (!going && (deltaY >= 0 || !cosmos.orbiters?.marsAt(clientX, clientY, canvas.getBoundingClientRect(), camera))) return false;
+      const now = performance.now();
+      if (deltaY < 0 && marsWanted === 1 && marsNear > 0.96) {
+        if (now > marsNextJobAt) {
+          marsNextJobAt = now + MARS_JOB_REST_MS;
+          marsTask = (marsTask + 1) % MARS_TASKS.length;
+          cosmos.orbiters?.marsJob(MARS_TASKS[marsTask].id, now);
+        }
+        return true;
+      }
+      if (!going) {
+        marsTask = Math.floor(Math.random() * MARS_TASKS.length);
+        cosmos.orbiters?.highlight(null);
+        cosmos.orbiters?.hold(null);
+      }
+      if (deltaY < 0) marsNextJobAt = now + MARS_JOB_REST_MS;
+      marsWanted = THREE.MathUtils.clamp(marsWanted - THREE.MathUtils.clamp(deltaY / 100, -1, 1) * MARS_WHEEL_STEP, 0, 1);
+      return true;
+    },
+    leaveMars() {
+      marsWanted = 0;
+    },
     marsAt(clientX, clientY) {
-      if (doomedAt !== null) return null;
+      if (doomedAt !== null || marsNear > 0.02) return null;
       return cosmos.orbiters?.marsAt(clientX, clientY, canvas.getBoundingClientRect(), camera) ?? null;
     },
     highlight(thing) {
