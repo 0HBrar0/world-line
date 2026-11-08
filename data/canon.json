@@ -4,9 +4,9 @@
     "generated": "2026-10-25",
     "description": "Single source of truth for the Steins;Gate explainer app. Every story fact carries sourceIds (resolving to the sources array) and a confidence tag. All text is paraphrased from research notes; no script text. Built from six research-notes files; see research/sources.md and research/canon-notes.md.",
     "confidenceLevels": {
-      "CONFIRMED": "Stated as canon by a reference source that cites the VN, anime or an official guidebook, or backed by two or more independent sources. If all support comes from one site, the object carries singleSource: true (singleSourceKind 'fan_wiki' => UI shows 'per fan wiki').",
-      "INTERPRETATION": "A fan or analyst reading, an inference by the researchers, or (by the characters notes' convention) a factual claim from a single fan-wiki page that the researcher declined to promote. Display as a reading, not a fact.",
-      "UNCLEAR": "Sources conflict, the only source is weak, or the claim is unverified. Always show competing versions from disputes/conflicts when available."
+      "CONFIRMED": "A source that cites the VN, anime or an official guidebook says so, or two independent sources agree.",
+      "INTERPRETATION": "A reading or inference, from fans, the researchers, or one fan-wiki page. Treat it as a theory, not a fact.",
+      "UNCLEAR": "Sources clash, the only source is weak, or nobody can back it up. Other versions are listed where we have them."
     },
     "fieldConventions": {
       "confidence": "Confidence that the event/fact happened or holds.",
@@ -5732,7 +5732,7 @@
     {
       "id": "wl-alpha-0000000",
       "divergence": "0.000000",
-      "divergenceNumeric": 0.0,
+      "divergenceNumeric": 0,
       "attractorField": "alpha",
       "label": "Spin-off: Rebellion of the Missing Ring",
       "whatIsDifferent": "Appears only in the spin-off manga Ch 00; Fandom treats 0.000000 as the floor of the Alpha range, where Alpha outcomes are strongest.",
@@ -8875,7 +8875,7 @@
       "commonMisconceptions": [
         {
           "claim": "The lottery mail was the first D-Mail.",
-          "correction": "The first was the accidental July 28 text to Daru; the lottery mail was the first deliberate change.",
+          "correction": "The first one was the accidental July 28 text to Daru. The lottery mail was just the first change made on purpose.",
           "confidence": "CONFIRMED",
           "sourceIds": [
             "src-wp-episodes"
@@ -8884,8 +8884,8 @@
           "singleSourceKind": "wikipedia"
         },
         {
-          "claim": "Undoing a D-Mail restores the exact old world line.",
-          "correction": "It lands on a nearby but different value (0.409420 vs 0.409431; 0.571024 vs 0.571046).",
+          "claim": "Undo a D-Mail and you get the exact old world line back.",
+          "correction": "You land close, but not on the same number: 0.409420 vs 0.409431, or 0.571024 vs 0.571046.",
           "confidence": "CONFIRMED",
           "sourceIds": [
             "src-wikigg-alpha"
@@ -8895,7 +8895,7 @@
         },
         {
           "claim": "Any message changes the world line.",
-          "correction": "Only changes big enough to move the meter's six decimals trigger a visible shift and Reading Steiner.",
+          "correction": "It has to change things enough to move the six decimals on the meter. Only then do you get a visible shift and Reading Steiner.",
           "confidence": "CONFIRMED",
           "sourceIds": [
             "src-fandom-divergence-meter",
@@ -8997,8 +8997,8 @@
       ],
       "commonMisconceptions": [
         {
-          "claim": "48 hours is an absolute limit.",
-          "correction": "It is the stated safe limit; Steins;Gate 0 upgrades it to two weeks.",
+          "claim": "48 hours is a hard limit.",
+          "correction": "That is only the safe limit. Steins;Gate 0 pushes it to two weeks.",
           "confidence": "CONFIRMED",
           "sourceIds": [
             "src-fandom-tlm",
@@ -9007,7 +9007,7 @@
         },
         {
           "claim": "A time leap changes the world line.",
-          "correction": "No reference source says a leap alone shifts divergence; leaping 'combined with D-Mails' lets you move between lines.",
+          "correction": "No reference source says a leap does that alone. Leaping 'combined with D-Mails' is what moves you between lines.",
           "confidence": "INTERPRETATION",
           "sourceIds": [
             "src-fandom-tlm",
@@ -9016,7 +9016,7 @@
         },
         {
           "claim": "Time leaping sends your body back.",
-          "correction": "Only memory data travels.",
+          "correction": "Just your memories go.",
           "confidence": "CONFIRMED",
           "sourceIds": [
             "src-wikigg-tlm",
@@ -9111,7 +9111,7 @@
       "commonMisconceptions": [
         {
           "claim": "Only Okabe remembers anything.",
-          "correction": "Others (Mayuri, Luka, Faris, Kurisu, Nakase, Amadeus) show partial recall; Okabe's is uniquely strong and consistent.",
+          "correction": "Mayuri, Luka, Faris, Kurisu, Nakase and Amadeus all recall bits. Okabe's is just uniquely strong and consistent.",
           "confidence": "CONFIRMED",
           "sourceIds": [
             "src-fandom-reading-steiner"
@@ -9121,7 +9121,7 @@
         },
         {
           "claim": "It triggers on time leaps.",
-          "correction": "It does not.",
+          "correction": "It doesn't.",
           "confidence": "CONFIRMED",
           "sourceIds": [
             "src-fandom-reading-steiner"
@@ -9205,7 +9205,7 @@
       "commonMisconceptions": [
         {
           "claim": "There is a 2% barrier too.",
-          "correction": "No reference source describes one.",
+          "correction": "No reference source mentions one.",
           "confidence": "UNCLEAR",
           "sourceIds": [
             "src-fandom-attractor-field",
@@ -9214,7 +9214,7 @@
         },
         {
           "claim": "You need to move more than 4%.",
-          "correction": "A blog figure contradicted by every other source; the barrier is 1%.",
+          "correction": "That figure comes from one blog, and every other source says otherwise. The barrier is 1%.",
           "confidence": "CONFIRMED",
           "sourceIds": [
             "src-wp-episodes",
@@ -9223,7 +9223,7 @@
         },
         {
           "claim": "Mayuri always dies on the same date on every Alpha line.",
-          "correction": "The outcome converges; the date shifts (a day later in anime ep 17).",
+          "correction": "The outcome is the same, but the date can move (a day later in anime ep 17).",
           "confidence": "CONFIRMED",
           "sourceIds": [
             "src-wp-episodes",
@@ -9232,7 +9232,7 @@
         },
         {
           "claim": "Steins Gate is just another Beta line.",
-          "correction": "It is neither an ordinary Alpha nor Beta line; whether it is its own field is a wording dispute.",
+          "correction": "It isn't an ordinary Alpha or Beta line. Whether it counts as its own field is mostly an argument about wording.",
           "confidence": "UNCLEAR",
           "sourceIds": [
             "src-wikigg-sg-world-line",
@@ -9319,7 +9319,7 @@
       "commonMisconceptions": [
         {
           "claim": "The meter was built in 2025.",
-          "correction": "No source ties it to 2025; the invention year is given as 2021 or 'some years before 2020'.",
+          "correction": "Nothing ties it to 2025. Sources say 2021 or 'some years before 2020'.",
           "confidence": "UNCLEAR",
           "sourceIds": [
             "src-wikigg-divergence-meter",
@@ -9328,7 +9328,7 @@
         },
         {
           "claim": "Each line has one fixed reading forever.",
-          "correction": "Later spin-offs show two superposed values.",
+          "correction": "Later spin-offs show two values overlapping.",
           "confidence": "CONFIRMED",
           "sourceIds": [
             "src-wikigg-world-line",
@@ -9417,7 +9417,7 @@
       "commonMisconceptions": [
         {
           "claim": "It is the same kind of device as the phone-microwave.",
-          "correction": "The microwave sends only data; this machine carries bodies.",
+          "correction": "The microwave only sends data. This machine carries actual bodies.",
           "confidence": "CONFIRMED",
           "sourceIds": [
             "src-wikigg-fg204",
@@ -9428,7 +9428,7 @@
         },
         {
           "claim": "The story's John Titor is the real-world John Titor.",
-          "correction": "The game borrows the real internet legend; in-story 'Titor' is Suzuha.",
+          "correction": "The game borrows the real internet legend. In the story, 'Titor' is Suzuha.",
           "confidence": "CONFIRMED",
           "sourceIds": [
             "src-wp-john-titor",
@@ -9439,7 +9439,7 @@
         },
         {
           "claim": "Its model name is simply 'FG204'.",
-          "correction": "Sources give FG204, C204, C203, C193 and OR204 inconsistently.",
+          "correction": "Sources can't agree: FG204, C204, C203, C193 and OR204 all turn up.",
           "confidence": "UNCLEAR",
           "sourceIds": [
             "src-wikigg-fg204",
@@ -10289,7 +10289,7 @@
   "disputes": [
     {
       "id": "dsp-prologue-value",
-      "topic": "Divergence of the opening Beta line",
+      "topic": "What does the meter read at the very start?",
       "versions": [
         {
           "claim": "1.130426% (value typed/displayed in the VN prologue)",
@@ -10318,14 +10318,14 @@
           ]
         }
       ],
-      "betterSupported": "1.130426% (three sources). 1.130205% is the Ch 10 / ep 22 return line, not the start.",
+      "betterSupported": "1.130426% has the most sources behind it (three). 1.130205% is the line you come back to in Ch 10 / ep 22, not the start.",
       "uiAction": "Show 1.130426 with an UNCLEAR badge and list alternates in the source drawer.",
       "spoilerTier": "premise",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-first-dmail-arrival",
-      "topic": "When did the first D-Mail arrive?",
+      "topic": "When did the first D-Mail actually arrive?",
       "versions": [
         {
           "claim": "July 23, 2010",
@@ -10352,14 +10352,14 @@
           ]
         }
       ],
-      "betterSupported": "No clear winner; 'five days' has two sources. Separate July 21/24 dates may belong to other test messages.",
+      "betterSupported": "No clear winner. 'Five days' has two sources, and the July 21/24 dates may belong to other test messages.",
       "uiAction": "Show 'several days earlier' with UNCLEAR badge.",
       "spoilerTier": "premise",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-lottery-miss",
-      "topic": "Why the lottery D-Mail failed",
+      "topic": "Why did the lottery D-Mail fail?",
       "versions": [
         {
           "claim": "Luka's mistake",
@@ -10374,14 +10374,14 @@
           ]
         }
       ],
-      "betterSupported": "Neither; the near-miss itself is confirmed.",
+      "betterSupported": "Neither explanation wins. All we know for sure is that it was a near miss.",
       "uiAction": "Say 'the ticket doesn't win'; put the cause in the drawer.",
       "spoilerTier": "sg_part1",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-divergence-meaning",
-      "topic": "What the divergence number measures",
+      "topic": "What does the divergence number really measure?",
       "versions": [
         {
           "claim": "Percent difference from the 'original' world line",
@@ -10396,14 +10396,14 @@
           ]
         }
       ],
-      "betterSupported": "Neither; treat it as an address/label.",
+      "betterSupported": "Neither. Treat it like an address or a label.",
       "uiAction": "Never animate it as a physical quantity.",
       "spoilerTier": "premise",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-meter-year",
-      "topic": "When the Divergence Meter was invented",
+      "topic": "When was the Divergence Meter invented?",
       "versions": [
         {
           "claim": "2021 (VN-cited)",
@@ -10425,14 +10425,14 @@
           ]
         }
       ],
-      "betterSupported": "Unresolved. No source ties it to 2025.",
+      "betterSupported": "Nobody knows, but nothing ties it to 2025.",
       "uiAction": "Do not show an invention year.",
       "spoilerTier": "sg_part2",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-barrier-size",
-      "topic": "How far must divergence move to change field?",
+      "topic": "How far does divergence have to move to change field?",
       "versions": [
         {
           "claim": "1% (anime eps 7 and 14; wiki field ranges)",
@@ -10479,14 +10479,14 @@
           ]
         }
       ],
-      "betterSupported": "It is neither an ordinary Alpha nor Beta line; field status is wording.",
+      "betterSupported": "It isn't an ordinary Alpha or Beta line. The rest is an argument about wording.",
       "uiAction": "Own highlighted lane, labelled 'Steins Gate', with an UNCLEAR info dot on 'field'.",
       "spoilerTier": "sg_ending",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-convergence-nature",
-      "topic": "Is convergence probabilistic or an active force?",
+      "topic": "Is convergence just probability, or an active force?",
       "versions": [
         {
           "claim": "Probabilistic: some events occur on more lines",
@@ -10501,7 +10501,7 @@
           ]
         }
       ],
-      "betterSupported": "Unresolved.",
+      "betterSupported": "Still open.",
       "uiAction": "Describe the effect, not the cause.",
       "spoilerTier": "sg_part2",
       "confidence": "UNCLEAR"
@@ -10523,14 +10523,14 @@
           ]
         }
       ],
-      "betterSupported": "Value appears; reliability doubtful.",
+      "betterSupported": "The number shows up, but we would not lean on it.",
       "uiAction": "Show with UNCLEAR.",
       "spoilerTier": "sg_ending",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-faris-ending-value",
-      "topic": "Faris ending world line",
+      "topic": "Which world line is the Faris ending on?",
       "versions": [
         {
           "claim": "-0.275349 (Omega) in the VN Faris ending",
@@ -10551,7 +10551,7 @@
           ]
         }
       ],
-      "betterSupported": "The strange output is confirmed; the value is unclear.",
+      "betterSupported": "The strange output is real. The value is anyone's guess.",
       "uiAction": "Show 'strange output' and the value with UNCLEAR.",
       "spoilerTier": "sg_ending",
       "confidence": "UNCLEAR"
@@ -10579,14 +10579,14 @@
           ]
         }
       ],
-      "betterSupported": "Outcome converges; date shifts.",
+      "betterSupported": "Same outcome, shifting date.",
       "uiAction": "Animate the date sliding later.",
       "spoilerTier": "sg_part2",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-raid-date",
-      "topic": "Date of the raid",
+      "topic": "What date is the raid?",
       "versions": [
         {
           "claim": "Aug 13, 2010",
@@ -10602,14 +10602,14 @@
           ]
         }
       ],
-      "betterSupported": "Aug 13, weakly supported.",
+      "betterSupported": "Probably Aug 13, but the support is thin.",
       "uiAction": "Show Aug 13 with UNCLEAR date badge.",
       "spoilerTier": "sg_part2",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-deletion-date",
-      "topic": "Date of the SERN deletion",
+      "topic": "What date is the SERN deletion?",
       "versions": [
         {
           "claim": "Aug 17, 2010",
@@ -10618,14 +10618,14 @@
           ]
         }
       ],
-      "betterSupported": "Single source.",
+      "betterSupported": "Only one source gives a date.",
       "uiAction": "Show with UNCLEAR date badge.",
       "spoilerTier": "sg_ending",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-fake-blood",
-      "topic": "What Okabe uses for Kurisu's 'blood'",
+      "topic": "What does Okabe use for Kurisu's 'blood'?",
       "versions": [
         {
           "claim": "His own blood",
@@ -10646,7 +10646,7 @@
           ]
         }
       ],
-      "betterSupported": "Unresolved; the notes even disagree on what Wikipedia says.",
+      "betterSupported": "Still open. Even the notes disagree on what Wikipedia says.",
       "uiAction": "Say 'stages a bloody scene'; list versions in drawer.",
       "spoilerTier": "sg_ending",
       "confidence": "UNCLEAR"
@@ -10663,14 +10663,14 @@
           ]
         }
       ],
-      "betterSupported": "Unknown whether original or S;G 0 retcon.",
+      "betterSupported": "Unknown whether this is original or an S;G 0 retcon.",
       "uiAction": "Tag media 'sg0' only; UNCLEAR.",
       "spoilerTier": "sg0",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-machine-naming",
-      "topic": "Suzuha's time machine names",
+      "topic": "What is Suzuha's time machine called?",
       "versions": [
         {
           "claim": "FG204 in both Alpha and Beta",
@@ -10691,14 +10691,14 @@
           ]
         }
       ],
-      "betterSupported": "Unresolved; source tagged 'inconsistent'.",
+      "betterSupported": "Still open. Even the source is marked inconsistent.",
       "uiAction": "Call it 'Suzuha's time machine'; names in drawer.",
       "spoilerTier": "sg_part2",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-suzuha-death",
-      "topic": "How Alpha-line Suzuha dies",
+      "topic": "How does Alpha-line Suzuha die?",
       "versions": [
         {
           "claim": "Suicide after memory loss (letter)",
@@ -10720,14 +10720,14 @@
           ]
         }
       ],
-      "betterSupported": "Unresolved which line gets which.",
+      "betterSupported": "Unclear which line gets which version.",
       "uiAction": "Show 'dies in 2000' with UNCLEAR.",
       "spoilerTier": "sg_part2",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-suzuha-beta-route",
-      "topic": "Beta Suzuha's route and Kagari separation year",
+      "topic": "Beta Suzuha's route, and the year she and Kagari split up",
       "versions": [
         {
           "claim": "1998",
@@ -10750,7 +10750,7 @@
     },
     {
       "id": "dsp-kagari-adoption",
-      "topic": "When Mayuri adopted Kagari",
+      "topic": "When did Mayuri adopt Kagari?",
       "versions": [
         {
           "claim": "2032",
@@ -10773,7 +10773,7 @@
     },
     {
       "id": "dsp-titor-car",
-      "topic": "Real-world Titor's claimed vehicle",
+      "topic": "What vehicle did the real-world Titor claim to use?",
       "versions": [
         {
           "claim": "1967 Chevrolet Corvette",
@@ -10788,14 +10788,14 @@
           ]
         }
       ],
-      "betterSupported": "Corvette.",
+      "betterSupported": "A Corvette.",
       "uiAction": "Show Corvette.",
       "spoilerTier": "premise",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-stratfor-name",
-      "topic": "Leskinen's agency name",
+      "topic": "What is Leskinen's agency called?",
       "versions": [
         {
           "claim": "Stratfor",
@@ -10817,14 +10817,14 @@
           ]
         }
       ],
-      "betterSupported": "Same group; translation variants.",
+      "betterSupported": "Same group, different translations.",
       "uiAction": "Show 'Stratfor' with alias list.",
       "spoilerTier": "sg0",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-leskinen-fate",
-      "topic": "Leskinen's fate",
+      "topic": "What happens to Leskinen?",
       "versions": [
         {
           "claim": "Alive (anime ep 21, one timeline)",
@@ -10839,14 +10839,14 @@
           ]
         }
       ],
-      "betterSupported": "Media-dependent.",
+      "betterSupported": "Depends which version you are reading or watching.",
       "uiAction": "Show per-media.",
       "spoilerTier": "sg0",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-sg0-interval",
-      "topic": "Time between the failed rescue and the Amadeus seminar",
+      "topic": "How long between the failed rescue and the Amadeus seminar?",
       "versions": [
         {
           "claim": "Nov 23, 2010 (about 3 months)",
@@ -10889,14 +10889,14 @@
           ]
         }
       ],
-      "betterSupported": "Semantic.",
+      "betterSupported": "Mostly a word game.",
       "uiAction": "Explain the fork-and-loop visually instead of labelling.",
       "spoilerTier": "sg0",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-ep23b-title",
-      "topic": "Title of episode 23-beta",
+      "topic": "What is episode 23-beta called?",
       "versions": [
         {
           "claim": "'Divide by Zero'",
@@ -10933,7 +10933,7 @@
           ]
         }
       ],
-      "betterSupported": "Unresolved; Wikipedia says only 'set after the series'.",
+      "betterSupported": "Still open. Wikipedia only says it is 'set after the series'.",
       "uiAction": "Mark the film lane UNCLEAR.",
       "spoilerTier": "extras",
       "confidence": "UNCLEAR"
@@ -10962,7 +10962,7 @@
           ]
         }
       ],
-      "betterSupported": "Only the ep 8 appearance is solid.",
+      "betterSupported": "All that is solid is that it appears in ep 8.",
       "uiAction": "Show the node without a cause edge.",
       "spoilerTier": "sg0",
       "confidence": "UNCLEAR"
@@ -10984,14 +10984,14 @@
           ]
         }
       ],
-      "betterSupported": "Naming scheme confirmed; ranges single-source.",
+      "betterSupported": "The naming scheme is confirmed. The ranges come from one source.",
       "uiAction": "Show arc bands as INTERPRETATION overlay.",
       "spoilerTier": "sg_part2",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-skuld-meaning",
-      "topic": "What 'Operation Skuld' names",
+      "topic": "What does 'Operation Skuld' actually name?",
       "versions": [
         {
           "claim": "The final-arc plan (anime eps 23-24)",
@@ -11007,14 +11007,14 @@
           ]
         }
       ],
-      "betterSupported": "Both usages exist.",
+      "betterSupported": "Both uses exist.",
       "uiAction": "Glossary lists both senses.",
       "spoilerTier": "sg_ending",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-helheim-date",
-      "topic": "Date of Operation Helheim",
+      "topic": "When is Operation Helheim?",
       "versions": [
         {
           "claim": "December 2011",
@@ -11023,14 +11023,14 @@
           ]
         }
       ],
-      "betterSupported": "Possibly a typo for 2010.",
+      "betterSupported": "Might just be a typo for 2010.",
       "uiAction": "Omit date.",
       "spoilerTier": "sg0",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-dride-timing",
-      "topic": "Which Okabe receives the Promised Rinascimento D-RINE, and when",
+      "topic": "Which Okabe gets the Promised Rinascimento D-RINE, and when?",
       "versions": [
         {
           "claim": "Sent Dec 2011, could overwrite Vega and Altair memories",
@@ -11074,7 +11074,7 @@
           ]
         }
       ],
-      "betterSupported": "Second (two community sources).",
+      "betterSupported": "The second version, backed by two community sources.",
       "uiAction": "INTERPRETATION note only.",
       "spoilerTier": "sg0",
       "confidence": "UNCLEAR"
@@ -11096,14 +11096,14 @@
           ]
         }
       ],
-      "betterSupported": "Opinion.",
+      "betterSupported": "Pure opinion.",
       "uiAction": "Do not rate; describe differences.",
       "spoilerTier": "sg0",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-yugo-sg0",
-      "topic": "Yugo's status in S;G 0",
+      "topic": "What is Yugo's status in S;G 0?",
       "versions": [
         {
           "claim": "Still a Rounder",
@@ -11118,14 +11118,14 @@
           ]
         }
       ],
-      "betterSupported": "Unresolved (same page).",
+      "betterSupported": "Still open, and the same page says both.",
       "uiAction": "UNCLEAR badge.",
       "spoilerTier": "sg0",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-okabe-daru-school",
-      "topic": "Did Okabe and Daru attend the same high school?",
+      "topic": "Did Okabe and Daru go to the same high school?",
       "versions": [
         {
           "claim": "Yes",
@@ -11147,7 +11147,7 @@
     },
     {
       "id": "dsp-kurisu-age",
-      "topic": "Kurisu's age",
+      "topic": "How old is Kurisu?",
       "versions": [
         {
           "claim": "18 (S;G), 19 (S;G 0)",
@@ -11162,14 +11162,14 @@
           ]
         }
       ],
-      "betterSupported": "Unresolved.",
+      "betterSupported": "Still open.",
       "uiAction": "Omit ages.",
       "spoilerTier": "premise",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-reboot-dates",
-      "topic": "Re:Boot Western dates",
+      "topic": "Re:Boot Western release dates",
       "versions": [
         {
           "claim": "Aug 20 (PC) / Oct 29 (consoles)",
@@ -11186,7 +11186,7 @@
           ]
         }
       ],
-      "betterSupported": "Aug 20 / Oct 29 (likely time zone).",
+      "betterSupported": "Aug 20 / Oct 29, likely just a time-zone gap.",
       "uiAction": "Show Aug 20 / Oct 29.",
       "spoilerTier": "premise",
       "confidence": "UNCLEAR"
@@ -11214,14 +11214,14 @@
           ]
         }
       ],
-      "betterSupported": "Unresolved.",
+      "betterSupported": "Still open.",
       "uiAction": "Show year only.",
       "spoilerTier": "premise",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-suzuha-titor-beta",
-      "topic": "Is Beta-line Suzuha also 'John Titor'?",
+      "topic": "Is Beta-line Suzuha 'John Titor' too?",
       "versions": [
         {
           "claim": "Alpha Suzuha is Titor; Beta section silent",
@@ -11236,14 +11236,14 @@
           ]
         }
       ],
-      "betterSupported": "Confirmed only for Alpha.",
+      "betterSupported": "Only confirmed for Alpha.",
       "uiAction": "Scope the reveal to Alpha.",
       "spoilerTier": "sg_part2",
       "confidence": "UNCLEAR"
     },
     {
       "id": "dsp-why-deletion-works",
-      "topic": "Why deleting SERN's record of the first D-Mail changes the world line",
+      "topic": "Why does deleting SERN's record of the first D-Mail change the world line?",
       "versions": [
         {
           "claim": "The mail's content plus its timestamp tipped SERN off and held the Alpha line",
@@ -11264,7 +11264,7 @@
           ]
         }
       ],
-      "betterSupported": "Not spelled out in any reference source; the event itself is confirmed.",
+      "betterSupported": "No reference source spells it out. The event itself is confirmed.",
       "uiAction": "Mark the mechanism 'debated' in the transition panel.",
       "spoilerTier": "sg_ending",
       "confidence": "UNCLEAR"
@@ -11287,7 +11287,7 @@
           ]
         }
       ],
-      "betterSupported": "Both reported; order unexplained.",
+      "betterSupported": "Both get reported, and nobody explains the order.",
       "uiAction": "Show both events; no causal edge.",
       "spoilerTier": "sg0",
       "confidence": "UNCLEAR"

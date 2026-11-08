@@ -9,6 +9,7 @@ import { useFocusTrap } from './useFocusTrap';
 const TABS: Array<{ path: string; label: string }> = [
   { path: 'map', label: 'Map' },
   { path: 'follow', label: 'Follow' },
+  { path: 'dmails', label: 'D-Mails' },
   { path: 'mechanics', label: 'Mechanics' },
   { path: 'compare', label: 'Compare' },
   { path: 'glossary', label: 'Glossary' },
@@ -16,7 +17,7 @@ const TABS: Array<{ path: string; label: string }> = [
   { path: 'sg0', label: 'S;G 0' },
   { path: 'endings', label: 'Endings' },
   { path: 'works', label: 'Works' },
-  { path: 'disputes', label: 'Disputes' },
+  { path: 'disputes', label: 'Debates' },
   { path: 'about', label: 'About' },
 ];
 

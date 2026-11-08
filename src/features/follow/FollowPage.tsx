@@ -1,24 +1,24 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { href, navigate, useRoute } from '../../app/router';
 import { readStore, writeStore } from '../../app/storage';
-import { TIER_ORDER, useReduceMotion, useSettings } from '../../app/settings';
+import { TIER_ORDER, useSettings } from '../../app/settings';
 import { Badge } from '../../components/Badge';
 import { formatDate } from '../../components/format';
+import { EDGE_STYLES } from '../../components/glyphs';
+import { GlassDock } from '../../components/GlassDock';
+import { MechIcon } from '../../components/MechIcon';
 import { Nixie } from '../../components/Nixie';
 import { useFocusTrap } from '../../components/useFocusTrap';
 import { canon } from '../../data/load';
-import type { StoryEvent, Tier } from '../../data/schema';
-import { eventsBySeq, isVisible, mechanicById, tierRank, visibleEvents, worldLineById, type EventOrder } from '../../data/selectors';
+import type { StoryEvent, Tier, Transition } from '../../data/schema';
+import { eventsBySeq, isVisible, lineLabel, mechanicById, tierRank, transitionById, transitionTier, visibleEvents, worldLineById, type EventOrder } from '../../data/selectors';
 import { safeText } from '../../data/tierGuard';
+import { DmailDialog, isDmail } from '../dmail/DmailFile';
 import { buildMapModel } from '../map/layout';
 import { MapCanvas } from '../map/MapCanvas';
 import { hoverForNode, useViewport } from '../map/MapPage';
 import { eventTarget } from '../map/targets';
 import { MechanicPlayer } from '../mechanics/MechanicPlayer';
-import { GlassDock } from '../../components/GlassDock';
-import { spaceStops, supportsWebGL } from './spaceStops';
-
-const SpaceFlight = lazy(() => import('./SpaceFlight'));
 
 // Guided mode offers the matching explainer at these four story beats. Ids only.
 const INTERLUDES: Record<string, string> = {
@@ -44,24 +44,91 @@ function dwellMs(words: number, speed: number): number {
   return (4000 + 60 * words) / speed;
 }
 
-function LineChange({ event, tier }: { event: StoryEvent; tier: Tier }) {
-  const line = (id: string | null) => {
-    const l = id ? worldLineById(id) : undefined;
-    return l && isVisible(l, tier) ? l : undefined;
-  };
-  const from = line(event.worldLineBefore);
-  const to = line(event.worldLineAfter);
-  if (!from && !to) return null;
+const lineOf = (e: StoryEvent) => e.worldLineAfter ?? e.worldLineBefore;
+
+function openTransition(e: StoryEvent | null, tier: Tier): Transition | undefined {
+  const t = e?.transitionId ? transitionById(e.transitionId) : undefined;
+  return t && tierRank(transitionTier(t)) <= tierRank(tier) ? t : undefined;
+}
+
+interface Stop {
+  lineId: string;
+  at: number;
+  via?: Transition;
+}
+
+/** The world lines the story passes through, one stop each time it lands somewhere new. */
+function trailStops(steps: StoryEvent[], tier: Tier): Stop[] {
+  const stops: Stop[] = [];
+  steps.forEach((step, at) => {
+    const lineId = lineOf(step);
+    const line = lineId ? worldLineById(lineId) : undefined;
+    if (!lineId || !line || !isVisible(line, tier) || stops.at(-1)?.lineId === lineId) return;
+    stops.push({ lineId, at, via: stops.length > 0 ? openTransition(step, tier) : undefined });
+  });
+  return stops;
+}
+
+/** Where Okabe has been, where he is now, and what is still ahead at this spoiler level. */
+function Trail({ stops, index, tier, onPick }: { stops: Stop[]; index: number; tier: Tier; onPick: (at: number) => void }) {
+  const here = stops.reduce((found, stop, i) => (stop.at <= index ? i : found), 0);
+  const current = useRef<HTMLLIElement>(null);
+  // Scrolls only the trail itself; scrollIntoView would drag the whole page sideways too.
+  useEffect(() => {
+    const item = current.current;
+    const strip = item?.closest('.trail');
+    if (item && strip) strip.scrollLeft = item.offsetLeft - (strip.clientWidth - item.offsetWidth) / 2;
+  }, [here]);
+  if (stops.length === 0) return null;
   return (
-    <p className="line-move">
-      {from && <Nixie value={from.divergence} size="sm" />}
-      {from && to && from.id !== to.id && (
-        <>
-          <span aria-hidden="true">→</span>
-          <Nixie value={to.divergence} size="sm" />
-        </>
+    <nav className="trail" aria-label="World lines so far">
+      <ol>
+        {stops.map((stop, i) => {
+          const line = worldLineById(stop.lineId)!;
+          const state = i < here ? 'is-past' : i === here ? 'is-here' : 'is-ahead';
+          return (
+            <li key={`${stop.lineId}-${stop.at}`} ref={i === here ? current : undefined} className={state}>
+              {i > 0 && (
+                <span className="trail-jump" title={stop.via ? EDGE_STYLES[stop.via.mechanism].label : undefined}>
+                  {stop.via ? <MechIcon kind={stop.via.mechanism} size={14} /> : <span aria-hidden="true">→</span>}
+                  <span className="sr-only">{stop.via ? `then by ${EDGE_STYLES[stop.via.mechanism].label}` : 'then'}</span>
+                </span>
+              )}
+              <button type="button" className="trail-stop" aria-current={i === here ? 'step' : undefined} onClick={() => onPick(stop.at)}>
+                <Nixie value={line.divergence} size="sm" label={line.divergence ?? 'Value unknown'} />
+                <span className="trail-name">{lineLabel(line, tier)}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+    </nav>
+  );
+}
+
+/** The jump made at this step, said plainly, with the D-Mail behind it when there is one. */
+function Jump({ event, transition, tier, onRead }: { event: StoryEvent; transition: Transition; tier: Tier; onRead: () => void }) {
+  const from = worldLineById(transition.from);
+  const to = worldLineById(transition.to);
+  const shown = (l: typeof from) => (l && isVisible(l, tier) ? l : undefined);
+  const [a, b] = [shown(from), shown(to)];
+  const style = EDGE_STYLES[transition.mechanism];
+  return (
+    <div className="jump">
+      <p className="jump-how">
+        <MechIcon kind={transition.mechanism} size={16} /> World line jump by {style.label}
+      </p>
+      {a && b && (
+        <p className="line-move">
+          <Nixie value={a.divergence} size="sm" /> <span aria-hidden="true">→</span> <span className="sr-only">changes to</span> <Nixie value={b.divergence} size="sm" />
+        </p>
       )}
-    </p>
+      {isDmail(event) && (
+        <button type="button" className="btn" onClick={onRead}>
+          Read the D-Mail
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -91,7 +158,7 @@ function TierWall({ nextTier }: { nextTier: Tier }) {
   const label = canon.meta.spoilerTiers.find((t) => t.id === nextTier)?.label;
   return (
     <div className="wall-card" data-testid="tier-wall">
-      <h2>🔒 End of this spoiler level</h2>
+      <h2>End of this spoiler level</h2>
       <p>The next part reveals “{label}”. Raise your spoiler level to continue.</p>
       {confirming ? (
         <div className="row">
@@ -119,17 +186,13 @@ export function FollowPage() {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [interlude, setInterlude] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
   const host = useRef<HTMLDivElement>(null);
-  const card = useRef<HTMLElement>(null);
   const [hostWidth, setHostWidth] = useState(1000);
-  const [view, setView] = useState<'entity' | 'flight' | 'chart'>('entity');
-  const reduce = useReduceMotion();
-  const canFly = useMemo(() => !reduce && supportsWebGL(), [reduce]);
-  const space = canFly && view !== 'chart';
   const mobile = w < 768;
 
   const steps = useMemo(() => visibleEvents(tier, media, order), [tier, media, order]);
-  const stops = useMemo(() => spaceStops(steps, tier), [steps, tier]);
+  const stops = useMemo(() => trailStops(steps, tier), [steps, tier]);
   const nextLocked = useMemo(() => {
     const later = eventsBySeq().filter((e) => e.media.some((m) => media.includes(m)) && !isVisible(e, tier));
     return later.length > 0 ? later.reduce((low, e) => (tierRank(e.spoilerTier) < tierRank(low) ? e.spoilerTier : low), later[0].spoilerTier) : null;
@@ -161,37 +224,35 @@ export function FollowPage() {
     return () => observer.disconnect();
   }, [mobile]);
 
-  const model = useMemo(() => buildMapModel(tier, media, order, Math.max(240, h - 520), STORY_SCALE), [tier, media, order, h]);
+  const model = useMemo(() => buildMapModel(tier, media, order, Math.max(240, h - 560), STORY_SCALE), [tier, media, order, h]);
   const node = event ? model.nodes.find((n) => n.id === event.id) : undefined;
   const edge = event?.transitionId ? model.edges.find((e) => e.id === event.transitionId) : undefined;
   const pan = node ? hostWidth / 2 - model.gutter - node.x : 0;
 
   useEffect(() => {
-    const line = event ? (event.worldLineAfter ?? event.worldLineBefore) : null;
+    const line = event ? lineOf(event) : null;
     const wl = line ? worldLineById(line) : undefined;
     setFocusedLine(wl && isVisible(wl, tier) ? wl.id : null);
     return () => setFocusedLine(null);
   }, [event, tier, setFocusedLine]);
 
-  const readoutLine = event ? worldLineById(event.worldLineAfter ?? event.worldLineBefore ?? '') : undefined;
-  const readout = readoutLine && isVisible(readoutLine, tier) ? readoutLine.divergence : null;
-
   const text = event ? narration(event, tier) : null;
   const words = text ? `${text.title} ${text.summary} ${text.changed} ${text.reveals.join(' ')}`.split(/\s+/).length : 0;
+  const jump = openTransition(event, tier);
 
   useEffect(() => {
-    if (!playing || interlude) return;
+    if (!playing || interlude || reading) return;
     if (atWall || index >= total - 1) {
       setPlaying(false);
       return;
     }
     const timer = window.setTimeout(() => go(index + 1), dwellMs(words, speed));
     return () => window.clearTimeout(timer);
-  }, [playing, interlude, atWall, index, total, words, speed, go]);
+  }, [playing, interlude, reading, atWall, index, total, words, speed, go]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (interlude) return;
+      if (interlude || reading) return;
       const target = e.target as HTMLElement;
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
       if (e.key === 'ArrowRight') go(index + 1);
@@ -204,7 +265,7 @@ export function FollowPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [go, index, total, interlude]);
+  }, [go, index, total, interlude, reading]);
 
   // Pointing at a point names it; clicking it takes the story there.
   const [pointed, setPointed] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -224,45 +285,9 @@ export function FollowPage() {
   const offerInterlude = mechanic && isVisible(mechanic, tier);
 
   return (
-    <main id="main" className={space ? 'page page-follow is-space' : 'page page-follow'}>
-      {space && (
-        <div className="space-stage" aria-hidden="true">
-          <Suspense fallback={null}>
-            <SpaceFlight
-              key={view}
-              view={view === 'flight' ? 'flight' : 'entity'}
-              stops={stops}
-              index={Math.min(index, Math.max(stops.length - 1, 0))}
-              onHover={(at, x, y) => pointAt(at === null ? null : (steps[at]?.id ?? null), x, y)}
-              onPick={pickStep}
-              onWheel={(delta) => card.current?.scrollBy(0, delta)}
-            />
-          </Suspense>
-          {view === 'entity' && <div className="entity-eyes" />}
-        </div>
-      )}
-      {space && (
-        <div className="space-meter">
-          <Nixie value={readout} size="lg" />
-        </div>
-      )}
+    <main id="main" className="page page-follow">
       <div className="follow-head row">
         <h1>Follow the story</h1>
-        {canFly && (
-          <div className="segmented" role="group" aria-label="View">
-            <button type="button" className="btn" aria-pressed={view === 'entity'} onClick={() => setView('entity')}>
-              Observer
-            </button>
-            <button type="button" className="btn" aria-pressed={view === 'flight'} onClick={() => setView('flight')}>
-              Flight
-            </button>
-            {!mobile && (
-              <button type="button" className="btn" aria-pressed={view === 'chart'} onClick={() => setView('chart')}>
-                Chart
-              </button>
-            )}
-          </div>
-        )}
         <div className="segmented" role="group" aria-label="Story order">
           <button type="button" className="btn" aria-pressed={order === 'seq'} onClick={() => setOrder('seq')}>
             Okabe's order
@@ -272,8 +297,9 @@ export function FollowPage() {
           </button>
         </div>
       </div>
-      <div className="follow-map" ref={host} aria-hidden="true" hidden={mobile || space}>
-        {!mobile && !space && (
+      <Trail stops={stops} index={index} tier={tier} onPick={pickStep} />
+      <div className="follow-map" ref={host} aria-hidden="true" hidden={mobile}>
+        {!mobile && (
           <MapCanvas
             model={model}
             tier={tier}
@@ -301,12 +327,12 @@ export function FollowPage() {
           />
         )}
       </div>
-      <section ref={card} className="follow-card" aria-label="Narration">
+      <section className="follow-card" aria-label="Narration">
         <div aria-live="polite" data-testid="narration">
           {event && text ? (
             <>
               <p className="follow-count mono">
-                {String(index + 1).padStart(2, '0')}/{String(steps.length).padStart(2, '0')}
+                Step {index + 1} of {steps.length}
               </p>
               <h2>{text.title}</h2>
               <p className="detail-meta">{formatDate(event)}</p>
@@ -322,20 +348,20 @@ export function FollowPage() {
             nextLocked && <TierWall nextTier={nextLocked} />
           )}
         </div>
+        {event && jump && <Jump event={event} transition={jump} tier={tier} onRead={() => setReading(true)} />}
         {event && (
           <div className="row">
             <Badge target={eventTarget(event, tier)} />
-            <LineChange event={event} tier={tier} />
             {offerInterlude && (
               <button type="button" className="btn" onClick={() => setInterlude(mechanicId!)}>
-                ▶ Watch how this works
+                Watch how this works
               </button>
             )}
+            <a className="btn btn-quiet" href={href('map', { ev: event.id })}>
+              Open in map
+            </a>
           </div>
         )}
-        <a className="btn btn-quiet follow-open" href={event ? href('map', { ev: event.id }) : href('map')}>
-          Open in map
-        </a>
       </section>
       <GlassDock
         className="glass-dock-follow"
@@ -359,6 +385,7 @@ export function FollowPage() {
         </div>
       )}
       {interlude && <Interlude id={interlude} onClose={() => setInterlude(null)} />}
+      {reading && event && <DmailDialog event={event} tier={tier} onClose={() => setReading(false)} />}
     </main>
   );
 }

@@ -39,7 +39,7 @@ export function CharactersIndex() {
           const portrait = portraitFor(c.id);
           return (
             <li key={c.id}>
-              <a className="tile character-tile has-portrait" style={{ '--c': glyphColor(c.id) } as CSSProperties} href={href(`characters/${c.id}`)}>
+              <a className="tile character-tile" style={{ '--c': glyphColor(c.id) } as CSSProperties} href={href(`characters/${c.id}`)}>
                 {portrait ? <img className="tile-portrait" src={portrait} alt="" loading="lazy" /> : <Portrait id={c.id} className="tile-portrait" />}
                 <span>
                   <h2>{c.name}</h2>

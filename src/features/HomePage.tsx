@@ -6,7 +6,6 @@ import { Badge, ConfidenceLegend } from '../components/Badge';
 import { EDGE_STYLES } from '../components/glyphs';
 import { Nixie } from '../components/Nixie';
 import { Linked } from '../components/Term';
-import { Threads } from '../components/Threads';
 import { canon } from '../data/load';
 import { glossaryById, isVisible, lineLabel, mechanicById, transitionById, worldLineById } from '../data/selectors';
 import type { GlossaryEntry, Tier } from '../data/schema';
@@ -14,8 +13,9 @@ import { safeText } from '../data/tierGuard';
 
 const PREMISE_ENTRIES = ['gl-future-gadget-lab', 'gl-phonewave', 'gl-world-line'];
 const STORY_ENTRIES = ['gl-divergence', 'gl-dmail', 'gl-reading-steiner'];
-const NUMERALS = ['I', 'II', 'III'];
+const NOTES = ['NOTE 01', 'NOTE 02', 'NOTE 03'];
 const JUMP_AT = 0.52;
+const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
 
 function glossaryTarget(g: GlossaryEntry) {
   return { id: g.id, title: g.term, confidence: g.confidence, sourceIds: g.sourceIds, singleSource: g.singleSource, singleSourceKind: g.singleSourceKind };
@@ -105,32 +105,55 @@ export function HomePage() {
   const { tier } = useSettings();
   const dmail = mechanicById('dmail')!;
   const level = canon.meta.spoilerTiers.find((t) => t.id === tier);
+  const first = worldLineById(transitionById('tr-first-dmail')!.from)!;
   return (
     <main id="main" className="home">
       <section className="act act-open">
-        <Threads className="open-threads" color="#ff8a1f" seed={2} count={34} />
-        <h1>One text message to the past can rewrite history.</h1>
-        <p className="lede">
-          <Linked text={dmail.oneLiner} tier={tier} />
-        </p>
-        <div className="row hero-actions">
-          <a className="btn btn-primary" href={href('follow')}>
-            Follow the story
-          </a>
-          <a className="btn btn-link" href={href('map')}>
-            Explore the map ›
-          </a>
+        <div className="meter-case">
+          <Nixie value={first.divergence} size="xl" />
+          <span className="meter-plate" aria-hidden="true">
+            Divergence
+          </span>
+        </div>
+        <div className="bench-intro">
+          <div>
+            <h1>One text message to the past can rewrite history.</h1>
+            <div className="row hero-actions">
+              <a className="btn btn-primary" href={href('follow')}>
+                Follow the story
+              </a>
+              <a className="btn btn-link" href={href('map')}>
+                Explore the map ›
+              </a>
+            </div>
+          </div>
+          <div className="phone">
+            <div className="phone-screen">
+              <span className="phone-head" aria-hidden="true">
+                <span>NEW MAIL</span>
+                <span>1/1</span>
+              </span>
+              <p>
+                <Linked text={dmail.oneLiner} tier={tier} />
+              </p>
+            </div>
+            <div className="phone-keys" aria-hidden="true">
+              {KEYS.map((key) => (
+                <span key={key}>{key}</span>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
 
       <JumpStory />
 
-      <section className="act act-premise theme-paper" aria-label="The premise">
+      <section className="act act-premise" aria-label="The premise">
         <div className="home-grid">
           {openEntries(PREMISE_ENTRIES, tier).map((g, i) => (
             <div key={g.id} className="premise-note">
               <span className="premise-numeral" aria-hidden="true">
-                {NUMERALS[i]}
+                {NOTES[i]}
               </span>
               <p>
                 {safeText(g.plainLanguage, tier)} <Badge compact target={glossaryTarget(g)} />
@@ -141,20 +164,17 @@ export function HomePage() {
       </section>
 
       <section className="act act-doors" aria-label="Where to go next">
-        <a className="door door-follow" href={href('follow')}>
-          <Threads className="door-art" color="#1c0f02" seed={3} count={30} />
+        <a className="door door-follow" data-file="FILE 01" href={href('follow')}>
           <h2>Follow the story</h2>
-          <p>Every step, in the order it happens.</p>
+          <p>Every step, in the order it happens</p>
         </a>
-        <a className="door door-map" href={href('map')}>
-          <Threads className="door-art" color="#7aa7ff" seed={5} />
+        <a className="door door-map" data-file="FILE 02" href={href('map')}>
           <h2>The world-line map</h2>
-          <p>All of it, on one chart.</p>
+          <p>All of it, on one chart</p>
         </a>
-        <a className="door door-mechanics theme-paper" href={href('mechanics')}>
-          <Threads className="door-art" color="#b3470a" seed={8} count={14} />
+        <a className="door door-mechanics" data-file="FILE 03" href={href('mechanics')}>
           <h2>How time travel works</h2>
-          <p>Six short animations.</p>
+          <p>Six short animations</p>
         </a>
       </section>
 

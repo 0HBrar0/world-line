@@ -18,7 +18,7 @@ A static, animated, interactive web app that explains the Steins;Gate and Steins
 - `sortDate` with `sortDateIsEditorial: true` is an ordering key, never a displayed date.
 
 ## No copyrighted assets
-No official art, screenshots, logos, character likenesses, music, voice or script text, with one exception: character pictures the owner adds to `src/assets/characters/` appear on the character tiles and pages. Everywhere else, original abstract visuals only (monogram glyphs, Nixie digits, lines, icons). Fonts are self-hosted OFL fonts.
+No official art, screenshots, logos, character likenesses, music, voice or script text, with two exceptions the owner supplies: character pictures added to `src/assets/characters/` appear on the character tiles and pages, and a D-Mail's exact wording added as `dmailText` (with sources) on its event in canon.json appears in that D-Mail's file. Never write either yourself. Everywhere else, original abstract visuals only (monogram glyphs, Nixie digits, lines, icons). Fonts are self-hosted OFL fonts.
 
 ## Stack
 Vite + React 18 + TypeScript (strict) · SVG + Framer Motion · Zod (schema mirrors canon.json) · Vitest + Testing Library · ESLint (typescript-eslint, react-hooks, jsx-a11y) · Playwright (screenshots at 1440×900 and 390×844, keyboard flows). Static site, hash routing, no runtime network requests. Cloudflare Web Analytics runs on the live site only. The other approved exception is Creator Uplink: `uplink-service/` on Railway, contacted only when a visitor presses send, plus Cloudflare Turnstile, loaded only for a visitor over their limit. Nothing else may depend on it.

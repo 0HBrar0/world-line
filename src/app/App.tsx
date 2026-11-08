@@ -11,6 +11,7 @@ import { TopBar } from '../components/TopBar';
 import { isVisible, worldLineById } from '../data/selectors';
 import { CharacterPage, CharactersIndex } from '../features/characters/CharacterPages';
 import { ComparePage } from '../features/compare/ComparePage';
+import { DmailsPage } from '../features/dmail/DmailFile';
 import { FollowPage } from '../features/follow/FollowPage';
 import { GlossaryEntryPage, GlossaryIndex } from '../features/glossary/GlossaryPages';
 import { HomePage } from '../features/HomePage';
@@ -23,6 +24,7 @@ const TITLES: Record<string, string> = {
   '': 'Home',
   map: 'World-line map',
   follow: 'Follow the story',
+  dmails: 'D-Mails',
   mechanics: 'How time travel works',
   compare: 'Compare world lines',
   glossary: 'Glossary',
@@ -30,7 +32,7 @@ const TITLES: Record<string, string> = {
   sg0: 'Steins;Gate 0',
   endings: 'Endings',
   works: 'Works',
-  disputes: 'Disputes',
+  disputes: 'Fan debates',
   about: 'About',
 };
 
@@ -68,6 +70,8 @@ function renderRoute(name: string, rest: string[]): ReactNode {
       return <MapPage />;
     case 'follow':
       return <FollowPage />;
+    case 'dmails':
+      return <DmailsPage />;
     case 'compare':
       return <ComparePage />;
     case 'glossary':

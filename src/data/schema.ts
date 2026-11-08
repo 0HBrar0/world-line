@@ -134,6 +134,8 @@ export const EventSchema = z.strictObject({
   timeConfidence: ConfidenceSchema.optional(),
   dateNote: z.string().optional(),
   targetDate: z.string().optional(),
+  /** The D-Mail's exact wording. Only the owner adds this, with sources. */
+  dmailText: z.strictObject({ text: z.string(), ...sourced }).optional(),
   ...sourced,
 });
 

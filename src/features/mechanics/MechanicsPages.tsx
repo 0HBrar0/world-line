@@ -47,7 +47,7 @@ export function MechanicsIndex() {
             </li>
           ) : (
             <li key={m.id}>
-              <div className="tile tile-locked">🔒 later in the story</div>
+              <div className="tile tile-locked">Later in the story</div>
             </li>
           ),
         )}

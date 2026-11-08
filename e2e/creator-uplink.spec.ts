@@ -1,6 +1,5 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { force3d } from './helpers';
 
 const ok = { status: 200, contentType: 'application/json', body: '{"success":true,"message":"SIGNAL TRANSMITTED"}' };
 
@@ -122,7 +121,6 @@ test('fits the screen and passes accessibility checks', async ({ page }) => {
 });
 
 test('the content policy blocks nothing the site uses', async ({ page }) => {
-  await force3d(page);
   const blocked: string[] = [];
   page.on('console', (message) => {
     if (message.text().includes('Content Security Policy')) blocked.push(message.text());

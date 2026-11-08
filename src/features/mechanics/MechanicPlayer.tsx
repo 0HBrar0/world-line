@@ -98,7 +98,7 @@ export function MechanicPlayer({ mechanic, compact = false }: PlayerProps) {
               </svg>
             ) : (
               <div className="stage-locked">
-                <span>🔒 later in the story</span>
+                <span>Later in the story</span>
               </div>
             )}
           </div>
@@ -131,7 +131,7 @@ export function MechanicPlayer({ mechanic, compact = false }: PlayerProps) {
               <Badge target={stepTarget(mechanic, step)} />
             </>
           ) : (
-            <p className="caption">🔒 later in the story</p>
+            <p className="caption">Later in the story</p>
           )}
         </div>
         <div className="player-controls">
@@ -161,7 +161,7 @@ export function MechanicPlayer({ mechanic, compact = false }: PlayerProps) {
                 <span data-testid="step-text">{s.caption}</span> <Badge compact target={stepTarget(mechanic, s)} />
               </>
             ) : (
-              '🔒 later in the story'
+              'Later in the story'
             )}
           </li>
         ))}
@@ -179,12 +179,12 @@ export function FlipCard({ claim, correction, target }: { claim: string; correct
         <motion.span key={String(flipped)} className="flip-inner" initial={reduce ? false : { rotateX: 90 }} animate={{ rotateX: 0 }} transition={{ duration: 0.18 }}>
           {flipped ? (
             <>
-              <span className="flip-tag">Actually</span>
+              <span className="flip-tag">Nope, here's the thing</span>
               {correction}
             </>
           ) : (
             <>
-              <span className="flip-tag">Common claim</span>
+              <span className="flip-tag">You might have heard</span>
               {claim}
             </>
           )}
@@ -233,7 +233,7 @@ export function MechanicExtras({ mechanic }: { mechanic: Mechanic }) {
       )}
       {myths.length > 0 && (
         <section>
-          <h2>Common misconceptions</h2>
+          <h2>Things people get wrong</h2>
           <div className="flip-grid">
             {myths.map((m, i) => (
               <FlipCard key={i} claim={m.claim} correction={m.correction} target={{ id: mechanic.id, title: m.claim, ...m }} />

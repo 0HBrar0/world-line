@@ -12,6 +12,7 @@ import { Linked } from '../../components/Term';
 import type { Media, Mechanism, StoryEvent, Tier, Transition, WorldLine } from '../../data/schema';
 import { atLeast, characterById, disputesFor, eventById, isVisible, lineLabel, mechanicById, transitionById, transitionTier, tierRank, worldLineById } from '../../data/selectors';
 import { safeText } from '../../data/tierGuard';
+import { isDmail } from '../dmail/DmailFile';
 import { eventTarget, lineTarget, transitionTarget } from './targets';
 
 export type Selection = { kind: 'event' | 'line' | 'edge'; id: string };
@@ -70,7 +71,7 @@ function PlayMechanic({ mechanism, tier }: { mechanism: Mechanism; tier: Tier })
   if (!isVisible(mechanic, tier)) return null;
   return (
     <a className="btn" href={href(`mechanics/${mechanic.id}`)}>
-      ▶ Play mechanic
+      Play the explainer
     </a>
   );
 }
@@ -139,7 +140,14 @@ function EventDetail({ event, tier }: { event: StoryEvent; tier: Tier }) {
           ))}
         </p>
       )}
-      {conflictCount > 0 && <p className="detail-meta">⇆ {conflictCount} conflicting source claims. Open sources to compare them.</p>}
+      {conflictCount > 0 && <p className="detail-meta">{conflictCount} sources disagree on this. Open the sources to compare them</p>}
+      {isDmail(event) && (
+        <p>
+          <a className="btn" href={href('dmails', { ev: event.id })}>
+            Read the D-Mail
+          </a>
+        </p>
+      )}
       <Reveals reveals={event.reveals} tier={tier} ancestorId={event.id} />
       {openTransition && (
         <p>
@@ -199,6 +207,13 @@ function EdgeDetail({ transition, tier }: { transition: Transition; tier: Tier }
       {note && <p className="detail-meta">{note}</p>}
       {transition.mechanismConfidence && <p className="detail-meta">Why this works: debated ({transition.mechanismConfidence}).</p>}
       {cause && isVisible(cause, tier) && <p className="detail-meta">Caused by: {safeText(cause.title, tier)}</p>}
+      {cause && isVisible(cause, tier) && isDmail(cause) && (
+        <p>
+          <a className="btn" href={href('dmails', { ev: cause.id })}>
+            Read the D-Mail
+          </a>
+        </p>
+      )}
       {remembers.length > 0 && (
         <>
           <h3>Who remembers</h3>

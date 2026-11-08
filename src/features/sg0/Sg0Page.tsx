@@ -231,7 +231,7 @@ export function Sg0Page() {
     return (
       <main id="main" className="page">
         <h1>Steins;Gate 0</h1>
-        <div className="tile tile-locked">Steins;Gate 0: the sequel's branch 🔒</div>
+        <div className="tile tile-locked">Steins;Gate 0: the sequel's branch unlocks later</div>
       </main>
     );
   }

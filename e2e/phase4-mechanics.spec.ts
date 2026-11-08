@@ -76,7 +76,7 @@ test('misconception cards flip', async ({ page }) => {
   await page.goto('/#/mechanics/dmail');
   const card = page.locator('.flip-face').first();
   await card.click();
-  await expect(card).toContainText('Actually');
+  await expect(card).toContainText("here's the thing");
 });
 
 test('screenshots of every storyboard frame', async ({ page }, info) => {

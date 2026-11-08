@@ -10,7 +10,7 @@ export function LockedPage({ title }: { title: string }) {
   return (
     <main id="main" className="page">
       <h1>{title}</h1>
-      <div className="tile tile-locked">🔒 later in the story</div>
+      <div className="tile tile-locked">Later in the story</div>
     </main>
   );
 }
@@ -109,7 +109,7 @@ export function WorksPage() {
                         <Badge compact target={{ id: w.id, title: w.title, ...w.canonStatus, sourceIds: [...new Set([...w.sourceIds, ...w.canonStatus.sourceIds])] }} />
                       </>
                     ) : (
-                      <span className="detail-meta">🔒 later in the story</span>
+                      <span className="detail-meta">Later in the story</span>
                     )}
                   </td>
                 </tr>
@@ -131,8 +131,8 @@ export function DisputesPage() {
   });
   return (
     <main id="main" className="page">
-      <h1>What fans and sources disagree on</h1>
-      <p>Nothing here is settled in the app. Each entry lists the competing versions as the sources give them.</p>
+      <h1>Fan debates</h1>
+      <p>The stuff nobody fully agrees on. We list every version and leave the arguing to you.</p>
       <ul className="dispute-list">
         {shown.map(({ d, topic, versions }) => {
           const better = safeText(d.betterSupported, tier);
@@ -144,7 +144,7 @@ export function DisputesPage() {
                   <li key={i}>{v.claim}</li>
                 ))}
               </ul>
-              {better && <p className="detail-meta">Better supported: {better}</p>}
+              {better && <p className="detail-meta">Our read: {better}</p>}
               <Badge compact target={{ id: d.id, title: topic, confidence: d.confidence, sourceIds: [...new Set(versions.flatMap((v) => v.sourceIds))] }} />
             </li>
           );
@@ -164,9 +164,13 @@ export function AboutPage() {
       <p className="lede">
         An unofficial fan explainer. It is not affiliated with MAGES., Spike Chunsoft, Nitroplus, White Fox or Kadokawa. Names belong to their owners. Facts are sourced and linked.
       </p>
+      <h2>Built with AI</h2>
+      <p>
+        This site was made with Claude, Anthropic's AI. The code, the research and much of the writing are AI-assisted, directed by a fan. It can be wrong, so check the sources behind a fact, and if you spot a mistake, send it through the radio button.
+      </p>
       <h2>No official assets</h2>
       <p>
-        There is no official art, screenshot, logo, character design, music, voice or script text here. Character monograms, the abstract pod and the Nixie tubes are original drawings, and all story text is a paraphrase. Fonts are self-hosted under the SIL Open Font License.
+        There is no official art, screenshot, logo, character design, music, voice or script text here. The character file cards, the abstract pod, the phone and the Nixie tubes are original drawings, and all story text is a paraphrase. Fonts are self-hosted under the SIL Open Font License.
       </p>
       <h2>Spoilers</h2>
       <p>The app starts at the premise and shows only what your chosen level allows. Locked content is not hidden with styling: it is not on the page at all.</p>
