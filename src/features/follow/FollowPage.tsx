@@ -1,22 +1,20 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { href, navigate, useRoute } from '../../app/router';
 import { readStore, writeStore } from '../../app/storage';
-import { TIER_ORDER, useSettings } from '../../app/settings';
+import { TIER_ORDER, useReduceMotion, useSettings } from '../../app/settings';
 import { Badge } from '../../components/Badge';
 import { formatDate } from '../../components/format';
+import { GearClock, parseClockTime } from '../../components/GearClock';
 import { EDGE_STYLES } from '../../components/glyphs';
 import { GlassDock } from '../../components/GlassDock';
-import { MechIcon } from '../../components/MechIcon';
 import { Nixie } from '../../components/Nixie';
+import { Blip } from '../../components/Secrets';
 import { useFocusTrap } from '../../components/useFocusTrap';
 import { canon } from '../../data/load';
-import type { StoryEvent, Tier, Transition } from '../../data/schema';
-import { eventsBySeq, isVisible, lineLabel, mechanicById, tierRank, transitionById, transitionTier, visibleEvents, worldLineById, type EventOrder } from '../../data/selectors';
+import type { Mechanism, StoryEvent, Tier, Transition, WorldLine } from '../../data/schema';
+import { atLeast, characterById, eventsBySeq, isVisible, lineLabel, mechanicById, tierRank, transitionById, transitionTier, visibleEvents, worldLineById, type EventOrder } from '../../data/selectors';
 import { safeText } from '../../data/tierGuard';
 import { DmailDialog, isDmail } from '../dmail/DmailFile';
-import { buildMapModel } from '../map/layout';
-import { MapCanvas } from '../map/MapCanvas';
-import { hoverForNode, useViewport } from '../map/MapPage';
 import { eventTarget } from '../map/targets';
 import { MechanicPlayer } from '../mechanics/MechanicPlayer';
 
@@ -28,7 +26,12 @@ const INTERLUDES: Record<string, string> = {
   'ev-0817-sern-deletion': 'attractor_field',
 };
 
-const STORY_SCALE = 1.5;
+// Steps that are time leaps. A leap stays on its world line, so canon has no transition to mark it. Ids only.
+const LEAPS = new Set(['ev-0813-time-leap-loop']);
+
+type JumpKind = Mechanism | 'time_leap';
+const JUMP_LABEL = (kind: JumpKind) => (kind === 'time_leap' ? 'Time leap' : EDGE_STYLES[kind].label);
+const FIELD_LABELS: Partial<Record<WorldLine['attractorField'], string>> = { alpha: 'Alpha field', beta: 'Beta field', steins_gate: 'Steins Gate' };
 
 /** The text read out at a step: title, summary, what changed, then unlocked reveals. */
 export function narration(e: StoryEvent, tier: Tier) {
@@ -51,86 +54,71 @@ function openTransition(e: StoryEvent | null, tier: Tier): Transition | undefine
   return t && tierRank(transitionTier(t)) <= tierRank(tier) ? t : undefined;
 }
 
-interface Stop {
-  lineId: string;
+function jumpKind(e: StoryEvent, tier: Tier): JumpKind | null {
+  const t = openTransition(e, tier);
+  if (t && t.from !== t.to) return t.mechanism;
+  return LEAPS.has(e.id) ? 'time_leap' : null;
+}
+
+const shownLine = (id: string | null, tier: Tier) => {
+  const line = id ? worldLineById(id) : undefined;
+  return line && isVisible(line, tier) ? line : undefined;
+};
+
+interface Step {
+  event: StoryEvent;
   at: number;
-  via?: Transition;
 }
+interface Band extends Step {
+  kind: 'band';
+  how: JumpKind;
+  no: number;
+}
+interface Chapter {
+  kind: 'chapter';
+  lineId: string | null;
+  items: Step[];
+  /** The jump that led here, when there was one. */
+  via?: Band;
+}
+type Block = Band | Chapter;
 
-/** The world lines the story passes through, one stop each time it lands somewhere new. */
-function trailStops(steps: StoryEvent[], tier: Tier): Stop[] {
-  const stops: Stop[] = [];
-  steps.forEach((step, at) => {
-    const lineId = lineOf(step);
-    const line = lineId ? worldLineById(lineId) : undefined;
-    if (!lineId || !line || !isVisible(line, tier) || stops.at(-1)?.lineId === lineId) return;
-    stops.push({ lineId, at, via: stops.length > 0 ? openTransition(step, tier) : undefined });
+/** The story as world-line chapters with one typed jump between them. */
+function buildBlocks(steps: StoryEvent[], numbers: Map<string, number>, tier: Tier): Block[] {
+  const blocks: Block[] = [];
+  let chapter: Chapter | null = null;
+  steps.forEach((event, at) => {
+    const how = jumpKind(event, tier);
+    if (how) {
+      const band: Band = { kind: 'band', event, at, how, no: numbers.get(event.id) ?? 0 };
+      chapter = { kind: 'chapter', lineId: event.worldLineAfter, items: [], via: band };
+      blocks.push(band, chapter);
+      return;
+    }
+    const lineId = lineOf(event) ?? chapter?.lineId ?? null;
+    if (!chapter || chapter.lineId !== lineId) {
+      chapter = { kind: 'chapter', lineId, items: [] };
+      blocks.push(chapter);
+    }
+    chapter.items.push({ event, at });
   });
-  return stops;
+  return blocks;
 }
 
-/** Where Okabe has been, where he is now, and what is still ahead at this spoiler level. */
-function Trail({ stops, index, tier, onPick }: { stops: Stop[]; index: number; tier: Tier; onPick: (at: number) => void }) {
-  const here = stops.reduce((found, stop, i) => (stop.at <= index ? i : found), 0);
-  const current = useRef<HTMLLIElement>(null);
-  // Scrolls only the trail itself; scrollIntoView would drag the whole page sideways too.
-  useEffect(() => {
-    const item = current.current;
-    const strip = item?.closest('.trail');
-    if (item && strip) strip.scrollLeft = item.offsetLeft - (strip.clientWidth - item.offsetWidth) / 2;
-  }, [here]);
-  if (stops.length === 0) return null;
-  return (
-    <nav className="trail" aria-label="World lines so far">
-      <ol>
-        {stops.map((stop, i) => {
-          const line = worldLineById(stop.lineId)!;
-          const state = i < here ? 'is-past' : i === here ? 'is-here' : 'is-ahead';
-          return (
-            <li key={`${stop.lineId}-${stop.at}`} ref={i === here ? current : undefined} className={state}>
-              {i > 0 && (
-                <span className="trail-jump" title={stop.via ? EDGE_STYLES[stop.via.mechanism].label : undefined}>
-                  {stop.via ? <MechIcon kind={stop.via.mechanism} size={14} /> : <span aria-hidden="true">→</span>}
-                  <span className="sr-only">{stop.via ? `then by ${EDGE_STYLES[stop.via.mechanism].label}` : 'then'}</span>
-                </span>
-              )}
-              <button type="button" className="trail-stop" aria-current={i === here ? 'step' : undefined} onClick={() => onPick(stop.at)}>
-                <Nixie value={line.divergence} size="sm" label={line.divergence ?? 'Value unknown'} />
-                <span className="trail-name">{lineLabel(line, tier)}</span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-    </nav>
-  );
+/** Each kind of jump is counted in the order Okabe lived it, so "D-Mail 03" means the same thing in either order. */
+function jumpNumbers(tier: Tier, media: Parameters<typeof visibleEvents>[1]): Map<string, number> {
+  const counts: Partial<Record<JumpKind, number>> = {};
+  const numbers = new Map<string, number>();
+  for (const e of visibleEvents(tier, media, 'seq')) {
+    const how = jumpKind(e, tier);
+    if (!how) continue;
+    counts[how] = (counts[how] ?? 0) + 1;
+    numbers.set(e.id, counts[how]!);
+  }
+  return numbers;
 }
 
-/** The jump made at this step, said plainly, with the D-Mail behind it when there is one. */
-function Jump({ event, transition, tier, onRead }: { event: StoryEvent; transition: Transition; tier: Tier; onRead: () => void }) {
-  const from = worldLineById(transition.from);
-  const to = worldLineById(transition.to);
-  const shown = (l: typeof from) => (l && isVisible(l, tier) ? l : undefined);
-  const [a, b] = [shown(from), shown(to)];
-  const style = EDGE_STYLES[transition.mechanism];
-  return (
-    <div className="jump">
-      <p className="jump-how">
-        <MechIcon kind={transition.mechanism} size={16} /> World line jump by {style.label}
-      </p>
-      {a && b && (
-        <p className="line-move">
-          <Nixie value={a.divergence} size="sm" /> <span aria-hidden="true">→</span> <span className="sr-only">changes to</span> <Nixie value={b.divergence} size="sm" />
-        </p>
-      )}
-      {isDmail(event) && (
-        <button type="button" className="btn" onClick={onRead}>
-          Read the D-Mail
-        </button>
-      )}
-    </div>
-  );
-}
+const two = (n: number) => String(n).padStart(2, '0');
 
 function Interlude({ id, onClose }: { id: string; onClose: () => void }) {
   const mechanic = mechanicById(id);
@@ -178,21 +166,55 @@ function TierWall({ nextTier }: { nextTier: Tier }) {
   );
 }
 
+/** What the open step says, with the actions that belong to it. */
+function StepDetail({ event, tier, at, total, actions }: { event: StoryEvent; tier: Tier; at: number; total: number; actions: ReactNode }) {
+  const text = narration(event, tier);
+  return (
+    <div className="step-detail">
+      <p className="follow-count">
+        Step {at + 1} of {total}
+      </p>
+      <p>{text.summary}</p>
+      {text.changed && <p className="follow-changed">{text.changed}</p>}
+      {text.reveals.map((r, i) => (
+        <p key={i} className="follow-reveal">
+          Later you learn: {r}
+        </p>
+      ))}
+      <div className="row">
+        {actions}
+        <a className="btn btn-quiet" href={href('map', { ev: event.id })}>
+          Open in map
+        </a>
+      </div>
+    </div>
+  );
+}
+
+function ChapterHead({ chapter, tier }: { chapter: Chapter; tier: Tier }) {
+  const line = shownLine(chapter.lineId, tier);
+  const field = line && atLeast(tier, 'sg_part2') ? FIELD_LABELS[line.attractorField] : undefined;
+  return (
+    <h2 className="chapter-head">
+      {line ? <Nixie value={line.divergence} size="md" label={line.divergence ? `World line ${line.divergence}` : 'World line with no listed value'} /> : <span className="chapter-unknown">World line not shown at this level</span>}
+      {field && <span className={`field-chip field-${line!.attractorField}`}>{field}</span>}
+      {line && <span className="chapter-name">{lineLabel(line, tier)}</span>}
+    </h2>
+  );
+}
+
 export function FollowPage() {
   const route = useRoute();
   const { tier, media, setFocusedLine } = useSettings();
-  const { w, h } = useViewport();
+  const reduce = useReduceMotion();
   const [order, setOrder] = useState<EventOrder>('seq');
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [interlude, setInterlude] = useState<string | null>(null);
-  const [reading, setReading] = useState(false);
-  const host = useRef<HTMLDivElement>(null);
-  const [hostWidth, setHostWidth] = useState(1000);
-  const mobile = w < 768;
+  const [reading, setReading] = useState<StoryEvent | null>(null);
 
   const steps = useMemo(() => visibleEvents(tier, media, order), [tier, media, order]);
-  const stops = useMemo(() => trailStops(steps, tier), [steps, tier]);
+  const blocks = useMemo(() => buildBlocks(steps, jumpNumbers(tier, media), tier), [steps, tier, media]);
   const nextLocked = useMemo(() => {
     const later = eventsBySeq().filter((e) => e.media.some((m) => media.includes(m)) && !isVisible(e, tier));
     return later.length > 0 ? later.reduce((low, e) => (tierRank(e.spoilerTier) < tierRank(low) ? e.spoilerTier : low), later[0].spoilerTier) : null;
@@ -213,46 +235,52 @@ export function FollowPage() {
     },
     [total, tier],
   );
+  const pick = useCallback(
+    (at: number) => {
+      setPlaying(false);
+      go(at);
+    },
+    [go],
+  );
 
-  useLayoutEffect(() => {
-    const el = host.current;
-    if (!el) return;
-    const measure = () => setHostWidth(el.clientWidth);
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [mobile]);
-
-  const model = useMemo(() => buildMapModel(tier, media, order, Math.max(240, h - 560), STORY_SCALE), [tier, media, order, h]);
-  const node = event ? model.nodes.find((n) => n.id === event.id) : undefined;
-  const edge = event?.transitionId ? model.edges.find((e) => e.id === event.transitionId) : undefined;
-  const pan = node ? hostWidth / 2 - model.gutter - node.x : 0;
-
+  const line = event ? shownLine(lineOf(event), tier) : undefined;
+  const lineId = line?.id ?? null;
   useEffect(() => {
-    const line = event ? lineOf(event) : null;
-    const wl = line ? worldLineById(line) : undefined;
-    setFocusedLine(wl && isVisible(wl, tier) ? wl.id : null);
+    setFocusedLine(lineId);
     return () => setFocusedLine(null);
-  }, [event, tier, setFocusedLine]);
+  }, [lineId, setFocusedLine]);
+
+  // The screen cuts to static for a moment whenever the story lands on another world line.
+  const [blip, setBlip] = useState(0);
+  const lastLine = useRef(lineId);
+  useEffect(() => {
+    if (lastLine.current && lineId && lastLine.current !== lineId) setBlip((b) => b + 1);
+    lastLine.current = lineId;
+  }, [lineId]);
+
+  // Waits a frame so it runs after the app's scroll-to-top on arriving at the page.
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => document.getElementById(`step-${index}`)?.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [index, order, reduce]);
 
   const text = event ? narration(event, tier) : null;
   const words = text ? `${text.title} ${text.summary} ${text.changed} ${text.reveals.join(' ')}`.split(/\s+/).length : 0;
-  const jump = openTransition(event, tier);
+  const paused = interlude !== null || reading !== null;
 
   useEffect(() => {
-    if (!playing || interlude || reading) return;
+    if (!playing || paused) return;
     if (atWall || index >= total - 1) {
       setPlaying(false);
       return;
     }
     const timer = window.setTimeout(() => go(index + 1), dwellMs(words, speed));
     return () => window.clearTimeout(timer);
-  }, [playing, interlude, reading, atWall, index, total, words, speed, go]);
+  }, [playing, paused, atWall, index, total, words, speed, go]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (interlude || reading) return;
+      if (paused) return;
       const target = e.target as HTMLElement;
       if (['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName)) return;
       if (e.key === 'ArrowRight') go(index + 1);
@@ -265,104 +293,195 @@ export function FollowPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [go, index, total, interlude, reading]);
+  }, [go, index, total, paused]);
 
-  // Pointing at a point names it; clicking it takes the story there.
-  const [pointed, setPointed] = useState<{ id: string; x: number; y: number } | null>(null);
-  const pointAt = useCallback((id: string | null, x: number, y: number) => setPointed(id ? { id, x, y } : null), []);
-  const pickStep = useCallback(
-    (at: number) => {
-      setPlaying(false);
-      setPointed(null);
-      go(at);
-    },
-    [go],
-  );
-  const pointedText = pointed ? hoverForNode(pointed.id, tier) : null;
+  const chapters = blocks.filter((b): b is Chapter => b.kind === 'chapter');
+  const startOf = (c: Chapter) => c.via?.at ?? c.items[0]?.at ?? 0;
+  const here = chapters.reduce((found, c, i) => (startOf(c) <= index ? i : found), 0);
+  const current = chapters[here];
+  const kinds = [...new Set(blocks.flatMap((b) => (b.kind === 'band' ? [b.how] : [])))];
+  const clock = event ? parseClockTime(event.time) : null;
+  const when = event ? formatDate(event) : '';
 
-  const mechanicId = event ? INTERLUDES[event.id] : undefined;
-  const mechanic = mechanicId ? mechanicById(mechanicId) : undefined;
-  const offerInterlude = mechanic && isVisible(mechanic, tier);
+  const actionsFor = (e: StoryEvent) => {
+    const mechanicId = INTERLUDES[e.id];
+    const mechanic = mechanicId ? mechanicById(mechanicId) : undefined;
+    return (
+      <>
+        {isDmail(e) && openTransition(e, tier) && (
+          <button type="button" className="btn btn-primary" onClick={() => setReading(e)}>
+            Read the D-Mail
+          </button>
+        )}
+        {mechanic && isVisible(mechanic, tier) && (
+          <button type="button" className="btn" onClick={() => setInterlude(mechanicId)}>
+            Watch how this works
+          </button>
+        )}
+      </>
+    );
+  };
+
+  const renderBand = (band: Band) => {
+    const open = band.at === index;
+    const t = openTransition(band.event, tier);
+    const from = shownLine(t?.from ?? band.event.worldLineBefore, tier);
+    const to = shownLine(t?.to ?? band.event.worldLineAfter, tier);
+    const people = band.event.characterIds.flatMap((id) => {
+      const c = characterById(id);
+      return c && isVisible(c, tier) ? [c.name] : [];
+    });
+    return (
+      <li key={band.event.id} id={`step-${band.at}`} className={`band band-${band.how}${open ? ' is-open' : ''}`} data-testid={open ? 'narration' : undefined}>
+        <div className="band-main">
+          <p className="band-no">
+            <small>{JUMP_LABEL(band.how)}</small>
+            {two(band.no)}
+          </p>
+          <div className="band-what">
+            <button type="button" className="step-title" aria-expanded={open} onClick={() => pick(band.at)}>
+              {safeText(band.event.title, tier)}
+            </button>
+            <p className="band-meta">
+              {formatDate(band.event)}
+              {people.length > 0 && ` · ${people.join(', ')}`}
+              {t?.crossesAttractorField && atLeast(tier, 'sg_part2') && ' · crosses a field boundary'}
+            </p>
+          </div>
+          <p className="band-move">
+            <small>{from && to && from.id !== to.id ? 'World line jump' : 'Same world line'}</small>
+            {from && <Nixie value={from.divergence} size="sm" />}
+            {from && to && from.id !== to.id && (
+              <>
+                <span aria-hidden="true">→</span>
+                <span className="sr-only">changes to</span>
+                <Nixie value={to.divergence} size="sm" />
+              </>
+            )}
+          </p>
+          <Badge compact target={eventTarget(band.event, tier)} />
+        </div>
+        {open && <StepDetail event={band.event} tier={tier} at={band.at} total={steps.length} actions={actionsFor(band.event)} />}
+      </li>
+    );
+  };
+
+  const renderChapter = (chapter: Chapter, key: number) => {
+    const shown = shownLine(chapter.lineId, tier);
+    const field = shown && atLeast(tier, 'sg_part2') ? shown.attractorField : 'neutral';
+    return (
+      <li key={`chapter-${key}`} className={`chapter rail-${field}${chapter === current ? ' is-here' : ''}`}>
+        <ChapterHead chapter={chapter} tier={tier} />
+        {chapter.items.length > 0 && (
+          <ol className="chapter-events">
+            {chapter.items.map(({ event: e, at }) => {
+              const open = at === index;
+              return (
+                <li key={e.id} id={`step-${at}`} className={open ? 'ev is-open' : 'ev'} data-testid={open ? 'narration' : undefined}>
+                  <div className="ev-row">
+                    <span className="ev-when">{formatDate(e)}</span>
+                    <button type="button" className="step-title" aria-expanded={open} onClick={() => pick(at)}>
+                      {safeText(e.title, tier)}
+                    </button>
+                    <Badge compact target={eventTarget(e, tier)} />
+                  </div>
+                  {open && <StepDetail event={e} tier={tier} at={at} total={steps.length} actions={actionsFor(e)} />}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </li>
+    );
+  };
 
   return (
-    <main id="main" className="page page-follow">
-      <div className="follow-head row">
-        <h1>Follow the story</h1>
-        <div className="segmented" role="group" aria-label="Story order">
-          <button type="button" className="btn" aria-pressed={order === 'seq'} onClick={() => setOrder('seq')}>
-            Okabe's order
-          </button>
-          <button type="button" className="btn" aria-pressed={order === 'calendar'} onClick={() => setOrder('calendar')}>
-            Calendar order
-          </button>
+    <main id="main" className="page page-follow chronicle">
+      <aside className="now" aria-label="Where the story is now">
+        <div className="meter-case">
+          <Nixie value={line?.divergence ?? null} size="lg" />
+          <span className="meter-plate" aria-hidden="true">
+            Divergence now
+          </span>
         </div>
-      </div>
-      <Trail stops={stops} index={index} tier={tier} onPick={pickStep} />
-      <div className="follow-map" ref={host} aria-hidden="true" hidden={mobile}>
-        {!mobile && (
-          <MapCanvas
-            model={model}
-            tier={tier}
-            panX={pan}
-            viewportWidth={hostWidth}
-            orderedIds={steps.map((s) => s.id)}
-            focusId={null}
-            selectedId={event?.id ?? null}
-            duration={0.7}
-            spotlightId={event?.id ?? null}
-            spotlightEdgeId={edge?.id ?? null}
-            interactive={false}
-            onActivateNode={(id) => {
-              const at = steps.findIndex((s) => s.id === id);
-              if (at >= 0) pickStep(at);
-            }}
-            onActivateEdge={() => undefined}
-            onFocusNode={() => undefined}
-            onHoverNode={pointAt}
-            onHoverEdge={() => undefined}
-            onKeyDown={() => undefined}
-            onPan={() => undefined}
-            onZoomWheel={() => undefined}
-            onSgInfo={() => undefined}
-          />
-        )}
-      </div>
-      <section className="follow-card" aria-label="Narration">
-        <div aria-live="polite" data-testid="narration">
-          {event && text ? (
-            <>
-              <p className="follow-count mono">
-                Step {index + 1} of {steps.length}
-              </p>
-              <h2>{text.title}</h2>
-              <p className="detail-meta">{formatDate(event)}</p>
-              <p>{text.summary}</p>
-              {text.changed && <p className="follow-changed">{text.changed}</p>}
-              {text.reveals.map((r, i) => (
-                <p key={i} className="follow-reveal">
-                  Later you learn: {r}
-                </p>
-              ))}
-            </>
-          ) : (
-            nextLocked && <TierWall nextTier={nextLocked} />
-          )}
+        <div className="now-clock">
+          <GearClock time={clock} label={event ? `Story clock: ${when}` : undefined} />
+          <p>
+            <small>Story time</small>
+            {event ? when : 'Not yet revealed'}
+          </p>
         </div>
-        {event && jump && <Jump event={event} transition={jump} tier={tier} onRead={() => setReading(true)} />}
-        {event && (
-          <div className="row">
-            <Badge target={eventTarget(event, tier)} />
-            {offerInterlude && (
-              <button type="button" className="btn" onClick={() => setInterlude(mechanicId!)}>
-                Watch how this works
-              </button>
+        {line && current && (
+          <p className="now-where">
+            <small>Current world line</small>
+            <strong>{lineLabel(line, tier)}</strong>
+            {current.via && (
+              <span>
+                Reached by {JUMP_LABEL(current.via.how)} {two(current.via.no)}
+              </span>
             )}
-            <a className="btn btn-quiet" href={href('map', { ev: event.id })}>
-              Open in map
-            </a>
-          </div>
+          </p>
         )}
+        <nav className="route" aria-label="Route so far">
+          <h2>Route so far</h2>
+          <ol>
+            {chapters.map((c, i) => {
+              const l = shownLine(c.lineId, tier);
+              const state = i < here ? 'is-past' : i === here ? 'is-here' : 'is-ahead';
+              return (
+                <li key={i} className={state}>
+                  <button type="button" aria-current={i === here ? 'step' : undefined} onClick={() => pick(startOf(c))}>
+                    <span className="route-value">{l ? (l.divergence ?? 'No value') : 'Hidden'}</span>
+                    <span className="route-via">{c.via ? `${JUMP_LABEL(c.via.how)} ${two(c.via.no)}` : i === 0 ? 'Start' : ''}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
+        </nav>
+      </aside>
+
+      <section className="log" aria-label="The chronicle">
+        <div className="follow-head row">
+          <h1>The chronicle</h1>
+          <div className="segmented" role="group" aria-label="Story order">
+            <button type="button" className="btn" aria-pressed={order === 'seq'} onClick={() => setOrder('seq')}>
+              Okabe's order
+            </button>
+            <button type="button" className="btn" aria-pressed={order === 'calendar'} onClick={() => setOrder('calendar')}>
+              Calendar order
+            </button>
+          </div>
+        </div>
+        <p className="lede">Each block is one world line. Each band between blocks is the jump that took Okabe to the next one</p>
+        {kinds.length > 0 && (
+          <ul className="jump-legend" aria-label="Kinds of jump">
+            {kinds.map((kind) => (
+              <li key={kind} className={`band-${kind}`}>
+                {JUMP_LABEL(kind)}
+              </li>
+            ))}
+          </ul>
+        )}
+        <ol className="blocks">
+          {blocks.map((block, i) => (block.kind === 'band' ? renderBand(block) : renderChapter(block, i)))}
+          {nextLocked && (
+            <li id={`step-${steps.length}`} className={atWall ? 'wall is-open' : 'wall'} data-testid={atWall ? 'narration' : undefined}>
+              {atWall ? (
+                <TierWall nextTier={nextLocked} />
+              ) : (
+                <button type="button" className="step-title" onClick={() => pick(steps.length)}>
+                  More of the story is locked at this spoiler level
+                </button>
+              )}
+            </li>
+          )}
+        </ol>
       </section>
+
+      <div className="sr-only" aria-live="polite">
+        {text ? `${text.title}. ${text.summary}` : ''}
+      </div>
       <GlassDock
         className="glass-dock-follow"
         label="Story player"
@@ -377,15 +496,9 @@ export function FollowPage() {
         onEnd={() => go(total - 1)}
         onPace={setSpeed}
       />
-      {pointedText && pointed && (
-        <div className="hover-card" role="presentation" style={{ left: Math.min(pointed.x + 14, w - 320), top: Math.min(pointed.y + 14, h - 170) }}>
-          <strong>{pointedText.title}</strong>
-          {pointedText.date && <span className="detail-meta">{pointedText.date}</span>}
-          {pointedText.badge && <span className="pill">{pointedText.badge}</span>}
-        </div>
-      )}
+      <Blip token={blip} />
       {interlude && <Interlude id={interlude} onClose={() => setInterlude(null)} />}
-      {reading && event && <DmailDialog event={event} tier={tier} onClose={() => setReading(false)} />}
+      {reading && <DmailDialog event={reading} tier={tier} onClose={() => setReading(null)} />}
     </main>
   );
 }

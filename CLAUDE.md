@@ -18,7 +18,7 @@ A static, animated, interactive web app that explains the Steins;Gate and Steins
 - `sortDate` with `sortDateIsEditorial: true` is an ordering key, never a displayed date.
 
 ## No copyrighted assets
-No official art, screenshots, logos, character likenesses, music, voice or script text, with two exceptions the owner supplies: character pictures added to `src/assets/characters/` appear on the character tiles and pages, and a D-Mail's exact wording added as `dmailText` (with sources) on its event in canon.json appears in that D-Mail's file. Never write either yourself. Everywhere else, original abstract visuals only (monogram glyphs, Nixie digits, lines, icons). Fonts are self-hosted OFL fonts.
+No official art, screenshots, logos, character likenesses, music, voice or script text, with two exceptions the owner supplies: character pictures added to `src/assets/characters/` appear on the character tiles and pages, and a D-Mail's wording added as `dmailText` on its event in canon.json appears in that D-Mail's file. The owner asked for the wording to be looked up: quote it only from a source, with `sourceIds` and a `version` saying which telling and translation, and keep it to the short message itself. Never invent, reword or translate it yourself, and never add pictures yourself. Everywhere else, original abstract visuals only (monogram glyphs, Nixie digits, lines, icons). Fonts are self-hosted OFL fonts.
 
 ## Stack
 Vite + React 18 + TypeScript (strict) · SVG + Framer Motion · Zod (schema mirrors canon.json) · Vitest + Testing Library · ESLint (typescript-eslint, react-hooks, jsx-a11y) · Playwright (screenshots at 1440×900 and 390×844, keyboard flows). Static site, hash routing, no runtime network requests. Cloudflare Web Analytics runs on the live site only. The other approved exception is Creator Uplink: `uplink-service/` on Railway, contacted only when a visitor presses send, plus Cloudflare Turnstile, loaded only for a visitor over their limit. Nothing else may depend on it.
@@ -35,7 +35,7 @@ steins-gate-explainer/
   scripts/validate-canon.ts    # CI validator (npm run validate:canon)
   scripts/reference/check_canon.py  # original Python checker (reference)
   src/
-    data/  (schema.ts, load.ts, selectors.ts)   components/   features/{map,follow,mechanics,compare,glossary,sg0,characters,works}
+    data/  (schema.ts, load.ts, selectors.ts)   components/   features/{map,follow,dmail,mechanics,compare,glossary,sg0,characters,works}
     styles/tokens.css   assets/icons/   app/ (routes, providers)
   tests/ (vitest)   e2e/ (playwright)   public/fonts/
 ```

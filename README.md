@@ -4,7 +4,7 @@
 
 An animated, interactive, spoiler-safe explainer of the Steins;Gate and Steins;Gate 0 story and time-travel mechanics, for first-time viewers. It is a static site with no runtime network requests, with two exceptions. Cloudflare Web Analytics counts visits on the live site only (no cookies, set by `VITE_ANALYTICS_TOKEN`). Creator Uplink contacts its small service in `uplink-service/` only when a visitor presses send. Set `VITE_UPLINK_URL` at build time to that service's address; the service reads `NTFY_BASE_URL`, `NTFY_TOPIC`, `NTFY_TOKEN` , `ALLOWED_ORIGINS` and optional `TURNSTILE_SECRET_KEY` from Railway and runs with `npm start` (root directory `uplink-service`, one instance). Two optional build settings: `VITE_TURNSTILE_SITE_KEY` adds a Cloudflare Turnstile check for visitors over their limit, loaded only at that moment, and `VITE_SUPPORT_URL` shows a "Support World Line" link in the panel. Every story fact comes from `data/canon.json` and shows a confidence badge that opens its sources. Unofficial fan project: no official art, screenshots, logos, music or script text.
 
-**Screens:** world-line map, Follow the story (a step-by-step tracker of which world line Okabe is on), D-Mails (every D-Mail as a file), six mechanic explainers, Compare, Glossary, Characters, S;G 0, Endings, Works, Fan debates, About.
+**Screens:** The chronicle (the story as world-line blocks with one numbered jump between them), World lines (the full chart), D-Mails (every D-Mail as a file), six time-travel explainers, Compare, Glossary, Characters, S;G 0, Endings, Works, Fan debates, About.
 
 ![Home page](docs/images/home.png)
 
@@ -79,14 +79,17 @@ npx tsx scripts/report-tier-leaks.ts                      # lists strings the ti
 
 - Character pictures: each character has an original file card with their initials until a picture is added to `src/assets/characters/`.
 - The spoiler control is a dropdown, not a segmented control: six long labels do not fit in the top bar.
-- Version 2 look: a Future Gadget Lab bench. Paper notebook pages, old terminal screens and a Nixie meter, set in Courier Prime and Special Elite, with the Nixie meter and the world-line tracker as the only lit elements (`src/styles/lab.css`). This departs from `docs/visual-concept.md`.
+- Version 3 look: washed-out paper, black ink and one red, with gears and Roman-numeral clocks turning behind the pages. The Nixie tubes and the old screens are the only dark, lit things. Type is Courier Prime, Special Elite and Barlow Condensed (`src/styles/steins.css`). This departs from `docs/visual-concept.md`.
 - Built with AI: the code, research and much of the writing were made with Claude, directed by a fan. The About page says so too.
 - Media chips, the confidence legend and Reduce motion sit in a Filters popover at every width, not only below 1280 px.
 - The S;G 0 page is split into four tabs rather than one long scroll.
 - Hovering the map fades everything except the hovered world line and its edges.
 - Phones and tablets get a one-time notice on the first visit: the chart views need a bigger screen and a mouse.
-- Version 2 removed the 3D space flight from Follow. Follow is now a trail of the world lines visited, the chart, and a card for each step that names the jump and opens its D-Mail.
-- D-Mail files show the date sent, where it lands, who is involved, what happened and what it changed. The exact wording appears only when the owner adds it to the event as `dmailText` with sources; until then the file says so.
+- The chronicle (`#/follow`) replaces the old step player. Each block is one world line; each coloured band between blocks is the jump that led to the next: D-Mail, D-Mail cancellation, time leap, time machine or database erasure, numbered in the order Okabe lived them. A side panel shows the divergence now, a story clock set to the open step's sourced time, and the route so far.
+- A time leap stays on its world line, so canon has no transition for it. The chronicle marks leap steps by event id (`LEAPS` in `FollowPage.tsx`); see request 6 in `docs/open-questions.md` for the dates canon lacks.
+- Motion: a short burst of static plays when the story lands on another world line, the phone on the home page buzzes, and the gears turn. All of it stops under Reduce motion.
+- Secrets: a few things a fan might try are listed in `docs/secrets.md`. Each one opens only what the visitor's spoiler level already allows.
+- D-Mail files show the date sent, where it lands, who is involved, what happened and what it changed. Five D-Mails also show their wording (`dmailText` on the event), quoted from a source and labelled with which telling and translation it is: the on-screen text is Japanese, so English wording differs between translations. The other D-Mails have no quotable wording in the sources checked (several are never shown in the story) and say so; see request 7 in `docs/open-questions.md`.
 - Map zoom uses the wheel, keyboard and on-screen buttons, and scales the map like a picture: the layout never changes, and dragging moves it in both directions. With the whole story in view the small icons and brackets fade out and return on zooming in. Pinch zoom is not implemented.
 - Map row heights are ordered, not to scale, because lines that differ only in the last digits would overlap. The S;G 0 lane sits above the Beta band instead of inside it.
 - Edges are reached with the E key from a node, or by mouse. They are not Tab stops.

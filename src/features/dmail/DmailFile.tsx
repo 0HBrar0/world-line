@@ -79,7 +79,10 @@ export function DmailFile({ event, tier, headingLevel = 2 }: { event: StoryEvent
           <>
             <p className="dmail-label">The message, as sent</p>
             <blockquote>{exact}</blockquote>
-            <Badge compact target={{ id: event.id, title: 'Message text', ...event.dmailText! }} />
+            {event.dmailText!.version && <p className="dmail-note">{event.dmailText!.version}</p>}
+            <Badge compact target={{ id: event.id, title: 'Message text', confidence: event.dmailText!.confidence, sourceIds: event.dmailText!.sourceIds, singleSource: event.dmailText!.singleSource, singleSourceKind: event.dmailText!.singleSourceKind }} />
+            <p className="dmail-label">What happened</p>
+            <p>{happened}</p>
           </>
         ) : (
           <>

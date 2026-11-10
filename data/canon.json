@@ -932,6 +932,46 @@
       "tier": 3,
       "status": "search-only",
       "notes": "Nothing (surfaced in search only). Caveat: Not fetched; supports nothing."
+    },
+    {
+      "id": "src-fandom-ep08",
+      "url": "https://steins-gate.fandom.com/wiki/S;G_(anime)_-_Ep.08",
+      "title": "Steins;Gate Fandom wiki: anime episode 8 (glossary)",
+      "tier": 2,
+      "status": "fetched",
+      "notes": "Episode glossary quotes the wording of Luka's pager D-Mail and says the spaces were left out to fit. Caveat: fan wiki; the English is the wiki's rendering of the on-screen Japanese, and other translations word it differently."
+    },
+    {
+      "id": "src-fandom-ep18",
+      "url": "https://steins-gate.fandom.com/wiki/S;G_(anime)_-_Ep.18",
+      "title": "Steins;Gate Fandom wiki: anime episode 18 (glossary)",
+      "tier": 2,
+      "status": "fetched",
+      "notes": "Episode glossary gives the number string sent to Luka's mother's pager to undo the first message. Caveat: fan wiki; the English is the wiki's rendering of the on-screen Japanese, and other translations word it differently."
+    },
+    {
+      "id": "src-fandom-ep19",
+      "url": "https://steins-gate.fandom.com/wiki/S;G_(anime)_-_Ep.19",
+      "title": "Steins;Gate Fandom wiki: anime episode 19 (glossary)",
+      "tier": 2,
+      "status": "fetched",
+      "notes": "Episode glossary quotes the D-Mail Moeka sent about the IBN 5100. Caveat: fan wiki; the English is the wiki's rendering of the on-screen Japanese, and other translations word it differently."
+    },
+    {
+      "id": "src-fandom-ep20",
+      "url": "https://steins-gate.fandom.com/wiki/S;G_(anime)_-_Ep.20",
+      "title": "Steins;Gate Fandom wiki: anime episode 20 (glossary)",
+      "tier": 2,
+      "status": "fetched",
+      "notes": "Episode glossary quotes the first D-Mail. Caveat: fan wiki; the English is the wiki's rendering of the on-screen Japanese, and other translations word it differently."
+    },
+    {
+      "id": "src-lparchive-sg-45",
+      "url": "https://lparchive.org/SteinsGate/Update%2045/",
+      "title": "Let's Play Archive: Steins;Gate, Update 45 (VN scene transcript)",
+      "tier": 1,
+      "status": "fetched",
+      "notes": "VN scene showing the LOTO SIX D-Mail as it arrived, in three messages. Caveat: unofficial fan translation of the VN text. Used only for the short message text."
     }
   ],
   "characters": [
@@ -6422,6 +6462,16 @@
         "anime"
       ],
       "spoilerTier": "premise",
+      "dmailText": {
+        "text": "Someone stabbed Kurisu Makise...",
+        "version": "Anime wording, in the fan wiki's English",
+        "confidence": "CONFIRMED",
+        "singleSource": true,
+        "singleSourceKind": "fan_wiki",
+        "sourceIds": [
+          "src-fandom-ep20"
+        ]
+      },
       "sourceIds": [
         "src-fandom-dmail",
         "src-wikigg-sg-vn-plot",
@@ -6585,6 +6635,16 @@
         "anime"
       ],
       "spoilerTier": "sg_part1",
+      "dmailText": {
+        "text": "Buy LOTO SIX\n021219343537\nsure to win!",
+        "version": "Game wording, from a fan translation. It arrived as three messages",
+        "confidence": "CONFIRMED",
+        "singleSource": true,
+        "singleSourceKind": "other",
+        "sourceIds": [
+          "src-lparchive-sg-45"
+        ]
+      },
       "sourceIds": [
         "src-fandom-dmail",
         "src-wikigg-alpha",
@@ -6633,6 +6693,16 @@
         "anime"
       ],
       "spoilerTier": "sg_part1",
+      "dmailText": {
+        "text": "The IBN 5100 is in Yanabayashi Shrine. Recover it immediately.",
+        "version": "Anime wording, in the fan wiki's English",
+        "confidence": "CONFIRMED",
+        "singleSource": true,
+        "singleSourceKind": "fan_wiki",
+        "sourceIds": [
+          "src-fandom-ep19"
+        ]
+      },
       "sourceIds": [
         "src-fandom-dmail",
         "src-wikigg-alpha",
@@ -6669,6 +6739,16 @@
         "anime"
       ],
       "spoilerTier": "sg_part1",
+      "dmailText": {
+        "text": "Eat vegetables for a healthy child",
+        "version": "Anime wording, in the fan wiki's English. Sent to a pager with the spaces left out",
+        "confidence": "CONFIRMED",
+        "singleSource": true,
+        "singleSourceKind": "fan_wiki",
+        "sourceIds": [
+          "src-fandom-ep08"
+        ]
+      },
       "sourceIds": [
         "src-fandom-dmail",
         "src-wikigg-alpha",
@@ -7186,6 +7266,16 @@
         "anime"
       ],
       "spoilerTier": "sg_part2",
+      "dmailText": {
+        "text": "2929831831...",
+        "version": "Anime wording, per the fan wiki. A number code sent to a pager",
+        "confidence": "CONFIRMED",
+        "singleSource": true,
+        "singleSourceKind": "fan_wiki",
+        "sourceIds": [
+          "src-fandom-ep18"
+        ]
+      },
       "sourceIds": [
         "src-fandom-dmail",
         "src-wikigg-alpha",

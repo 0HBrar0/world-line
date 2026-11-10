@@ -3,8 +3,11 @@ import { motion, useMotionValueEvent, useScroll, useTransform, type MotionValue 
 import { href } from '../app/router';
 import { useReduceMotion, useSettings } from '../app/settings';
 import { Badge, ConfidenceLegend } from '../components/Badge';
+import { GearClock } from '../components/GearClock';
 import { EDGE_STYLES } from '../components/glyphs';
+import { LabItem, type LabItemKind } from '../components/LabItems';
 import { Nixie } from '../components/Nixie';
+import { Blip } from '../components/Secrets';
 import { Linked } from '../components/Term';
 import { canon } from '../data/load';
 import { glossaryById, isVisible, lineLabel, mechanicById, transitionById, worldLineById } from '../data/selectors';
@@ -13,9 +16,17 @@ import { safeText } from '../data/tierGuard';
 
 const PREMISE_ENTRIES = ['gl-future-gadget-lab', 'gl-phonewave', 'gl-world-line'];
 const STORY_ENTRIES = ['gl-divergence', 'gl-dmail', 'gl-reading-steiner'];
-const NOTES = ['NOTE 01', 'NOTE 02', 'NOTE 03'];
+const NOTES = ['Note 01', 'Note 02', 'Note 03'];
 const JUMP_AT = 0.52;
 const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
+
+// Each thing on the bench opens the glossary note about it. Ids only.
+const BENCH: Array<{ kind: LabItemKind; entry: string }> = [
+  { kind: 'microwave', entry: 'gl-gel-banana' },
+  { kind: 'crt', entry: 'gl-braun-tube-workshop' },
+  { kind: 'phone', entry: 'gl-phone-trigger' },
+  { kind: 'whiteboard', entry: 'gl-lab-mem-numbers' },
+];
 
 function glossaryTarget(g: GlossaryEntry) {
   return { id: g.id, title: g.term, confidence: g.confidence, sourceIds: g.sourceIds, singleSource: g.singleSource, singleSourceKind: g.singleSourceKind };
@@ -88,7 +99,7 @@ function JumpStory() {
     <section ref={section} className="act-jump" aria-label={label}>
       <div className="story-pin">
         <StoryLines progress={scrollYProgress} />
-        <div className="story-meter" aria-hidden="true">
+        <div className="story-meter meter-case" aria-hidden="true">
           <Nixie value={(jumped ? to : from).divergence} size="xl" label="" />
         </div>
         <div className="story-captions">
@@ -101,36 +112,89 @@ function JumpStory() {
   );
 }
 
+/** Things lying around the lab. Pressing one switches it on and opens the glossary note about it. */
+function LabBench({ tier }: { tier: Tier }) {
+  const [on, setOn] = useState<LabItemKind | null>(null);
+  const [blip, setBlip] = useState(0);
+  const items = BENCH.flatMap((item) => {
+    const entry = glossaryById(item.entry);
+    return entry && isVisible(entry, tier) ? [{ ...item, entry }] : [];
+  });
+  const open = items.find((item) => item.kind === on);
+  if (items.length === 0) return null;
+  return (
+    <section className="act act-bench" aria-labelledby="bench-title">
+      <h2 id="bench-title">On the lab bench</h2>
+      <p className="detail-meta">Switch something on</p>
+      <ul className="bench-items">
+        {items.map(({ kind, entry }) => (
+          <li key={kind}>
+            <button
+              type="button"
+              className="bench-item"
+              aria-pressed={on === kind}
+              onClick={() => {
+                setOn(on === kind ? null : kind);
+                if (kind === 'crt' && on !== kind) setBlip((b) => b + 1);
+              }}
+            >
+              <LabItem kind={kind} on={on === kind} />
+              <span>{entry.term}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="bench-note" aria-live="polite">
+        {open && (
+          <>
+            <p>
+              {safeText(open.entry.plainLanguage, tier)} <Badge compact target={glossaryTarget(open.entry)} />
+            </p>
+            <a className="btn btn-quiet" href={href(`glossary/${open.entry.id}`)}>
+              More in the glossary
+            </a>
+          </>
+        )}
+      </div>
+      <Blip token={blip} />
+    </section>
+  );
+}
+
 export function HomePage() {
   const { tier } = useSettings();
   const dmail = mechanicById('dmail')!;
   const level = canon.meta.spoilerTiers.find((t) => t.id === tier);
   const first = worldLineById(transitionById('tr-first-dmail')!.from)!;
+  // Pressing the meter makes the tubes roll again.
+  const [roll, setRoll] = useState(0);
   return (
     <main id="main" className="home">
       <section className="act act-open">
-        <div className="meter-case">
-          <Nixie value={first.divergence} size="xl" />
-          <span className="meter-plate" aria-hidden="true">
-            Divergence
-          </span>
-        </div>
-        <div className="bench-intro">
-          <div>
-            <h1>One text message to the past can rewrite history.</h1>
-            <div className="row hero-actions">
-              <a className="btn btn-primary" href={href('follow')}>
-                Follow the story
-              </a>
-              <a className="btn btn-link" href={href('map')}>
-                Explore the map ›
-              </a>
-            </div>
+        <GearClock live className="hero-clock" />
+        <div className="hero-copy">
+          <p className="kicker">An unofficial fan chronicle</p>
+          <h1>One text message to the past can rewrite history.</h1>
+          <div className="row hero-actions">
+            <a className="btn btn-primary" href={href('follow')}>
+              Read the chronicle
+            </a>
+            <a className="btn btn-link" href={href('map')}>
+              See every world line ›
+            </a>
           </div>
+        </div>
+        <div className="hero-kit">
+          <button type="button" className="meter-case" title="Press to roll the tubes" onClick={() => setRoll((r) => r + 1)}>
+            <Nixie key={roll} value={first.divergence} size="lg" />
+            <span className="meter-plate" aria-hidden="true">
+              Divergence
+            </span>
+          </button>
           <div className="phone">
             <div className="phone-screen">
               <span className="phone-head" aria-hidden="true">
-                <span>NEW MAIL</span>
+                <span>New mail</span>
                 <span>1/1</span>
               </span>
               <p>
@@ -163,16 +227,22 @@ export function HomePage() {
         </div>
       </section>
 
+      <LabBench tier={tier} />
+
       <section className="act act-doors" aria-label="Where to go next">
-        <a className="door door-follow" data-file="FILE 01" href={href('follow')}>
-          <h2>Follow the story</h2>
-          <p>Every step, in the order it happens</p>
+        <a className="door" data-file="File 01" href={href('follow')}>
+          <h2>The chronicle</h2>
+          <p>Every world line and every jump, in order</p>
         </a>
-        <a className="door door-map" data-file="FILE 02" href={href('map')}>
-          <h2>The world-line map</h2>
+        <a className="door" data-file="File 02" href={href('map')}>
+          <h2>World lines</h2>
           <p>All of it, on one chart</p>
         </a>
-        <a className="door door-mechanics" data-file="FILE 03" href={href('mechanics')}>
+        <a className="door" data-file="File 03" href={href('dmails')}>
+          <h2>D-Mails</h2>
+          <p>Each message to the past, as a file</p>
+        </a>
+        <a className="door" data-file="File 04" href={href('mechanics')}>
           <h2>How time travel works</h2>
           <p>Six short animations</p>
         </a>

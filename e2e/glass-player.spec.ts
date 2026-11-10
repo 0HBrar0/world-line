@@ -33,17 +33,22 @@ test('the glass arrows and play step along the map', async ({ page }, info) => {
   await page.getByRole('button', { name: 'Pause' }).click();
 });
 
-test('points on the chart name themselves and take the story there', async ({ page }, info) => {
-  test.skip(info.project.name === 'mobile', 'the chart is desktop only');
+test('pressing a step in the chronicle takes the story there', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await setTier(page, 'extras');
   await page.goto('/#/follow/1');
-  const point = page.locator('.follow-map [data-node]').nth(2);
-  await point.hover();
-  await expect(page.locator('.hover-card strong')).not.toBeEmpty();
-  await point.click();
-  await expect(page).toHaveURL(/follow\/\d+/);
-  await expect(page).not.toHaveURL(/follow\/1$/);
+  await page.locator('.chronicle .step-title').nth(2).click();
+  await expect(page).toHaveURL(/follow\/3$/);
+  await expect(page.getByTestId('narration')).toHaveAttribute('id', 'step-2');
+});
+
+test('the route panel jumps to a world line', async ({ page }, info) => {
+  test.skip(info.project.name === 'mobile', 'the route panel is desktop only');
+  await setTier(page, 'sg_part1');
+  await page.goto('/#/follow/1');
+  await page.locator('.route button').nth(1).click();
+  await expect(page).toHaveURL(/follow\/5$/);
+  await expect(page.locator('.band.is-open')).toBeVisible();
 });
 
 test('the glass arrows step through the story', async ({ page }) => {

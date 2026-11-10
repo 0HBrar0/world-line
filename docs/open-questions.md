@@ -624,3 +624,11 @@ Independent re-check of canon.json against freshly fetched sources. Sources were
 | 18 | First rescue: Okabe stabs Kurisu (`ev-0728-rescue-attempt-1`) | CONFIRMED | The Wikipedia ep 23 summary says Okabe accidentally stabs her himself and Nakabachi flees with her theory. | VERIFIED |
 
 Residual notes (no edit): several Alpha world lines cite `src-wp-episodes`, which supports the events but not the digits. The digits rest on wiki.gg Alpha and Fandom D-Mail, two independent wikis.
+
+### 6. Time leaps as dated jumps (the chronicle, `FollowPage.tsx`)
+
+The chronicle shows every jump as a band with where it starts and where it lands. Canon has one time-leap step (`ev-0813-time-leap-loop`) with no date it leaps back to and no count of leaps, and the other leaps in the story have no events at all. Needed per leap: the date and time it is made, the date and time it lands, who leaps, and sources. Until then the band shows only the step's own date and "Same world line".
+
+### 7. D-Mail wording still missing (D-Mail files, `DmailFile.tsx`)
+
+Wording is on file for the first D-Mail, LOTO SIX, Moeka's, Luka's and the one undoing Luka's. No quotable wording was found for: Faris's (`ev-0807-dmail-faris`), 'follow Suzuha' (`ev-0810-dmail-suzuha-tail`), the failed Moeka cancellation (`ev-0811-failed-moeka-cancel`), undoing Suzuha's (`ev-0813-undo-suzuha`), undoing Faris's (`ev-0814-undo-faris`), undoing Moeka's (`ev-0815-undo-moeka`), the Faris-route D-Mail and the S;G 0 D-Mails. The fan wiki's D-Mail table and episode glossaries only describe them, and the game transcript does not show the text for most. Needed per D-Mail: the wording as a source quotes it, which telling and translation it is, and the source. Until then the file shows what happened and says the wording isn't on file.

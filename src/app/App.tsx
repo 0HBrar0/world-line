@@ -5,6 +5,8 @@ import { SettingsProvider, useReduceMotion, useSettings } from './settings';
 import { ConfidenceLegend } from '../components/Badge';
 import { CreatorUplink } from '../components/CreatorUplink';
 import { DeviceNotice } from '../components/DeviceNotice';
+import { Backdrop } from '../components/GearClock';
+import { Secrets } from '../components/Secrets';
 import { SourceDrawerProvider } from '../components/drawer';
 import { ToastProvider } from '../components/toast';
 import { TopBar } from '../components/TopBar';
@@ -22,8 +24,8 @@ import { AboutPage, DisputesPage, EndingsPage, WorksPage } from '../features/wor
 
 const TITLES: Record<string, string> = {
   '': 'Home',
-  map: 'World-line map',
-  follow: 'Follow the story',
+  map: 'World lines',
+  follow: 'The chronicle',
   dmails: 'D-Mails',
   mechanics: 'How time travel works',
   compare: 'Compare world lines',
@@ -109,6 +111,11 @@ function Shell() {
 
   useEffect(() => setLegendOpen(false), [name, setLegendOpen]);
 
+  // Stylesheet animations follow the same motion setting as everything else.
+  useEffect(() => {
+    document.documentElement.dataset.motion = reduce ? 'reduce' : 'full';
+  }, [reduce]);
+
   const readout = useMemo(() => {
     const line = focusedLine ? worldLineById(focusedLine) : undefined;
     return line && isVisible(line, tier) ? line.divergence : null;
@@ -116,6 +123,7 @@ function Shell() {
 
   return (
     <MotionConfig reducedMotion={reduce ? 'always' : 'never'}>
+      <Backdrop />
       <SkipLink target="main">Skip to content</SkipLink>
       {name === 'map' && <SkipLink target="map-list">Skip to map list</SkipLink>}
       <TopBar readout={readout} />
@@ -125,6 +133,7 @@ function Shell() {
       </div>
       {renderRoute(name, route.path.slice(1))}
       <CreatorUplink />
+      <Secrets />
       <DeviceNotice />
     </MotionConfig>
   );

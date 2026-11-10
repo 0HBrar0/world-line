@@ -7,10 +7,10 @@ import { SettingsPanel } from './SettingsPanel';
 import { useFocusTrap } from './useFocusTrap';
 
 const TABS: Array<{ path: string; label: string }> = [
-  { path: 'map', label: 'Map' },
-  { path: 'follow', label: 'Follow' },
+  { path: 'follow', label: 'Chronicle' },
+  { path: 'map', label: 'World lines' },
   { path: 'dmails', label: 'D-Mails' },
-  { path: 'mechanics', label: 'Mechanics' },
+  { path: 'mechanics', label: 'Time travel' },
   { path: 'compare', label: 'Compare' },
   { path: 'glossary', label: 'Glossary' },
   { path: 'characters', label: 'Characters' },
