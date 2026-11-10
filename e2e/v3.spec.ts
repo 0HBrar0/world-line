@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { setTier, showSources } from './helpers';
+import { setTier, shot, showSources } from './helpers';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
@@ -223,5 +223,31 @@ test.describe('motion', () => {
   test('a D-Mail file shows the message leaving, as decoration only', async ({ page }) => {
     await page.goto('/#/dmails');
     await expect(page.locator('.dmail-send').first()).toHaveAttribute('aria-hidden', 'true');
+  });
+});
+
+test.describe('reading a D-Mail in place', () => {
+  test('the map opens the message on a phone without leaving the map', async ({ page }, info) => {
+    const first = event('ev-0728-first-dmail');
+    await page.goto('/#/map?ev=ev-0728-first-dmail');
+    await page.getByRole('button', { name: 'Read the D-Mail' }).click();
+    const dialog = page.getByRole('dialog').filter({ has: page.locator('.dmail-phone') });
+    await expect(dialog.locator('.dmail-phone blockquote')).toHaveText(first.dmailText.text);
+    await expect(dialog).toContainText(first.summary);
+    await expect(page).toHaveURL(/#\/map/);
+    await page.screenshot({ path: shot('v3', 'dmail-phone', info.project.name) });
+    // Closing the phone leaves the event's details open underneath.
+    await page.keyboard.press('Escape');
+    await expect(page.locator('.dmail-phone')).toHaveCount(0);
+    await expect(page.locator('.detail-panel')).toBeVisible();
+  });
+
+  test('the phone passes accessibility checks', async ({ page }) => {
+    await page.goto('/#/follow/5');
+    await page.getByRole('button', { name: 'Read the D-Mail' }).click();
+    await expect(page.locator('.dmail-phone')).toBeVisible();
+    await page.waitForTimeout(600);
+    const { violations } = await new AxeBuilder({ page }).include('.dmail-dialog').analyze();
+    expect(violations.filter((v) => v.impact === 'serious' || v.impact === 'critical').map((v) => v.id)).toEqual([]);
   });
 });

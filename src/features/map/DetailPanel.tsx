@@ -12,7 +12,7 @@ import { Linked } from '../../components/Term';
 import type { Media, Mechanism, StoryEvent, Tier, Transition, WorldLine } from '../../data/schema';
 import { atLeast, characterById, disputesFor, eventById, isVisible, lineLabel, mechanicById, transitionById, transitionTier, tierRank, worldLineById } from '../../data/selectors';
 import { safeText } from '../../data/tierGuard';
-import { isDmail } from '../dmail/DmailFile';
+import { isDmail, ReadDmail } from '../dmail/DmailFile';
 import { eventTarget, lineTarget, transitionTarget } from './targets';
 
 export type Selection = { kind: 'event' | 'line' | 'edge'; id: string };
@@ -144,9 +144,7 @@ function EventDetail({ event, tier }: { event: StoryEvent; tier: Tier }) {
       {sources && conflictCount > 0 && <p className="detail-meta">{conflictCount} sources disagree on this. Open the sources to compare them</p>}
       {isDmail(event) && (
         <p>
-          <a className="btn" href={href('dmails', { ev: event.id })}>
-            Read the D-Mail
-          </a>
+          <ReadDmail event={event} tier={tier} />
         </p>
       )}
       <Reveals reveals={event.reveals} tier={tier} ancestorId={event.id} />
@@ -211,9 +209,7 @@ function EdgeDetail({ transition, tier }: { transition: Transition; tier: Tier }
       {cause && isVisible(cause, tier) && <p className="detail-meta">Caused by: {safeText(cause.title, tier)}</p>}
       {cause && isVisible(cause, tier) && isDmail(cause) && (
         <p>
-          <a className="btn" href={href('dmails', { ev: cause.id })}>
-            Read the D-Mail
-          </a>
+          <ReadDmail event={cause} tier={tier} />
         </p>
       )}
       {remembers.length > 0 && (

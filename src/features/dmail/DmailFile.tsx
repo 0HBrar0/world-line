@@ -1,4 +1,5 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useRoute } from '../../app/router';
 import { useSettings, useShowSources } from '../../app/settings';
 import { Badge } from '../../components/Badge';
@@ -12,6 +13,7 @@ import { characterById, isVisible, tierRank, transitionById, transitionTier, vis
 import { isTextSafe, safeText } from '../../data/tierGuard';
 import { eventTarget } from '../map/targets';
 
+const KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'];
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 /** A D-Mail is an event whose jump was made by sending one or by cancelling one. */
@@ -31,8 +33,12 @@ const shownLine = (id: string | null, tier: Tier) => {
   return line && isVisible(line, tier) ? line : undefined;
 };
 
-/** One D-Mail as a file: when it went, where it landed, what it said, and what it moved. */
-export function DmailFile({ event, tier, headingLevel = 2 }: { event: StoryEvent; tier: Tier; headingLevel?: 2 | 3 }) {
+/**
+ * One D-Mail as a file: when it went, where it landed, what it said, and what it moved.
+ * With `phone`, the message itself is shown on a phone, so what comes from the story is set apart
+ * from this site's own notes about it.
+ */
+export function DmailFile({ event, tier, headingLevel = 2, phone = false }: { event: StoryEvent; tier: Tier; headingLevel?: 2 | 3; phone?: boolean }) {
   const sources = useShowSources();
   const transition = event.transitionId ? transitionById(event.transitionId) : undefined;
   const open = transition && tierRank(transitionTier(transition)) <= tierRank(tier) ? transition : undefined;
@@ -52,7 +58,7 @@ export function DmailFile({ event, tier, headingLevel = 2 }: { event: StoryEvent
   const Sub = `h${headingLevel + 1}` as 'h3' | 'h4';
 
   return (
-    <article className="dmail-file" id={`dmail-${event.id}`} aria-labelledby={`dmail-title-${event.id}`}>
+    <article className={phone ? 'dmail-file is-phone' : 'dmail-file'} id={`dmail-${event.id}`} aria-labelledby={`dmail-title-${event.id}`}>
       <p className="dmail-kind">{cancelling ? 'Cancelling D-Mail' : 'D-Mail'}</p>
       <Title id={`dmail-title-${event.id}`}>{safeText(event.title, tier)}</Title>
       <dl className="dmail-meta">
@@ -76,7 +82,49 @@ export function DmailFile({ event, tier, headingLevel = 2 }: { event: StoryEvent
           </div>
         )}
       </dl>
-      <DmailSend />
+      {phone && (
+        <div className="dmail-phone-col">
+          <div className="phone dmail-phone">
+            <div className="phone-screen">
+              <span className="phone-head" aria-hidden="true">
+                <span>{cancelling ? 'Cancelling mail' : 'Sent mail'}</span>
+                <span>{event.time ?? ''}</span>
+              </span>
+              {exact ? (
+                <>
+                  <p className="dmail-label">The message, as sent</p>
+                  <blockquote>{exact}</blockquote>
+                  {sources && event.dmailText!.version && <p className="dmail-note">{event.dmailText!.version}</p>}
+                </>
+              ) : (
+                <p className="dmail-note">The exact wording isn't on file yet</p>
+              )}
+              <p className="phone-foot">
+                Sent {formatDate(event)}
+                {event.targetDate && (
+                  <>
+                    <br />
+                    Lands {landsOn(event.targetDate)}
+                  </>
+                )}
+              </p>
+            </div>
+            <div className="phone-keys" aria-hidden="true">
+              {KEYS.map((key) => (
+                <span key={key}>{key}</span>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+      {phone && (
+        <section>
+          <Sub>What happened</Sub>
+          <p>{happened}</p>
+        </section>
+      )}
+      {!phone && <DmailSend />}
+      {!phone && (
       <div className="dmail-screen">
         {exact ? (
           <>
@@ -95,6 +143,7 @@ export function DmailFile({ event, tier, headingLevel = 2 }: { event: StoryEvent
           </>
         )}
       </div>
+      )}
       {(changed || (from && to)) && (
         <section className="dmail-result">
           <Sub>What it changed</Sub>
@@ -126,15 +175,30 @@ export function DmailFile({ event, tier, headingLevel = 2 }: { event: StoryEvent
 export function DmailDialog({ event, tier, onClose }: { event: StoryEvent; tier: Tier; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   useFocusTrap(ref, onClose);
-  return (
-    <div className="sheet-layer interlude-layer">
+  // Drawn on top of the whole page, wherever it was opened from, so reading never means leaving.
+  return createPortal(
+    <div className="sheet-layer interlude-layer dmail-layer" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div ref={ref} className="interlude dmail-dialog" role="dialog" aria-modal="true" aria-labelledby={`dmail-title-${event.id}`}>
         <button type="button" className="btn detail-close" onClick={onClose}>
           Close
         </button>
-        <DmailFile event={event} tier={tier} />
+        <DmailFile event={event} tier={tier} phone />
       </div>
-    </div>
+    </div>,
+    document.body,
+  );
+}
+
+/** A button that opens a D-Mail on the phone, over whatever page it sits on. */
+export function ReadDmail({ event, tier }: { event: StoryEvent; tier: Tier }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button type="button" className="btn btn-primary" onClick={() => setOpen(true)}>
+        Read the D-Mail
+      </button>
+      {open && <DmailDialog event={event} tier={tier} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 
