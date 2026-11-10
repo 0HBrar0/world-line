@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { href, navigate, useRoute } from '../../app/router';
-import { useSettings } from '../../app/settings';
+import { useSettings, useShowSources } from '../../app/settings';
 import { Badge } from '../../components/Badge';
 import { CharacterGlyph, EDGE_STYLES } from '../../components/glyphs';
 import { MechIcon } from '../../components/MechIcon';
@@ -96,6 +96,7 @@ function Picker({ lines, chosen, onToggle }: { lines: WorldLine[]; chosen: strin
 }
 
 export function ComparePage() {
+  const sources = useShowSources();
   const route = useRoute();
   const { tier, media } = useSettings();
   const toast = useToast();
@@ -218,23 +219,25 @@ export function ComparePage() {
                   </td>
                 ))}
               </tr>
-              <tr>
-                <th scope="row">Alternate values</th>
-                {chosen.map((l) => {
-                  const values = l.alternateValues.filter((a) => isTextSafe(`${a.value ?? ''} ${a.note}`, tier));
-                  return (
-                    <td key={l.id}>
-                      {values.length === 0
-                        ? '—'
-                        : values.map((a, i) => (
-                            <p key={i} className="detail-meta">
-                              {a.value && <code className="mono">{a.value}</code>} {a.note} <Badge compact target={{ id: l.id, title: a.note, ...a }} />
-                            </p>
-                          ))}
-                    </td>
-                  );
-                })}
-              </tr>
+              {sources && (
+                <tr>
+                  <th scope="row">Alternate values</th>
+                  {chosen.map((l) => {
+                    const values = l.alternateValues.filter((a) => isTextSafe(`${a.value ?? ''} ${a.note}`, tier));
+                    return (
+                      <td key={l.id}>
+                        {values.length === 0
+                          ? '—'
+                          : values.map((a, i) => (
+                              <p key={i} className="detail-meta">
+                                {a.value && <code className="mono">{a.value}</code>} {a.note} <Badge compact target={{ id: l.id, title: a.note, ...a }} />
+                              </p>
+                            ))}
+                      </td>
+                    );
+                  })}
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

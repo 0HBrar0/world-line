@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { useSettings } from '../../app/settings';
+import { useSettings, useShowSources } from '../../app/settings';
 import { href } from '../../app/router';
 import { Badge, SubConfidence } from '../../components/Badge';
 import { CharacterGlyph, EDGE_STYLES, MECHANIC_FOR_EDGE } from '../../components/glyphs';
@@ -97,6 +97,7 @@ function LineMove({ before, after, tier }: { before: string | null; after: strin
 }
 
 function EventDetail({ event, tier }: { event: StoryEvent; tier: Tier }) {
+  const sources = useShowSources();
   const changed = event.whatChanged ? safeText(event.whatChanged, tier) : '';
   const summary = safeText(event.summary, tier);
   const characters = event.characterIds.flatMap((id) => {
@@ -140,7 +141,7 @@ function EventDetail({ event, tier }: { event: StoryEvent; tier: Tier }) {
           ))}
         </p>
       )}
-      {conflictCount > 0 && <p className="detail-meta">{conflictCount} sources disagree on this. Open the sources to compare them</p>}
+      {sources && conflictCount > 0 && <p className="detail-meta">{conflictCount} sources disagree on this. Open the sources to compare them</p>}
       {isDmail(event) && (
         <p>
           <a className="btn" href={href('dmails', { ev: event.id })}>
@@ -159,6 +160,7 @@ function EventDetail({ event, tier }: { event: StoryEvent; tier: Tier }) {
 }
 
 function LineDetail({ line, tier }: { line: WorldLine; tier: Tier }) {
+  const sources = useShowSources();
   const different = safeText(line.whatIsDifferent, tier);
   return (
     <>
@@ -173,7 +175,7 @@ function LineDetail({ line, tier }: { line: WorldLine; tier: Tier }) {
       </p>
       {!line.divergence && <p className="detail-meta">No value listed.</p>}
       {different && <p>{different}</p>}
-      {atLeast(tier, 'sg_ending') && disputesFor(line.id, tier).length > 0 && <p className="detail-meta">Disputed: see sources.</p>}
+      {sources && atLeast(tier, 'sg_ending') && disputesFor(line.id, tier).length > 0 && <p className="detail-meta">Disputed: see sources.</p>}
       <Reveals reveals={line.reveals} tier={tier} ancestorId={line.id} />
       <p>
         <a className="btn" href={href('compare', { lines: line.id.replace(/^wl-(alpha|beta)-/, 'wl-') })}>

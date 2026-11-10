@@ -16,27 +16,16 @@ export function tierIndex(tier: TierId): number {
 
 /** Personal options from the Settings panel. */
 export interface Prefs {
-  satellites: boolean;
-  drifters: boolean;
-  driftPace: 'rare' | 'normal' | 'lots';
-  rocket: boolean;
-  lightRays: boolean;
-  sunBrightness: number;
-  quality: 'auto' | 'high' | 'low';
   autoplayMechanics: boolean;
   largeText: boolean;
+  /** Confidence badges, source links and notes on where sources disagree. Off unless the visitor asks. */
+  showSources: boolean;
 }
 
 export const DEFAULT_PREFS: Prefs = {
-  satellites: true,
-  drifters: true,
-  driftPace: 'normal',
-  rocket: true,
-  lightRays: true,
-  sunBrightness: 1,
-  quality: 'auto',
   autoplayMechanics: true,
   largeText: false,
+  showSources: false,
 };
 
 interface Settings {
@@ -65,6 +54,16 @@ function defaultMediaFor(tier: TierId): MediaKey[] {
   return tierIndex(tier) >= tierIndex('sg0') ? [...DEFAULT_MEDIA, 'sg0_vn', 'sg0_anime'] : DEFAULT_MEDIA;
 }
 
+/** Saved options, keeping only the ones this version has (older versions saved more). */
+function initialPrefs(): Prefs {
+  const stored = readStore<Record<string, unknown>>('wl.prefs', {});
+  const prefs: Record<string, unknown> = { ...DEFAULT_PREFS };
+  for (const key of Object.keys(DEFAULT_PREFS)) {
+    if (typeof stored[key] === typeof prefs[key]) prefs[key] = stored[key];
+  }
+  return prefs as unknown as Prefs;
+}
+
 function initialTier(): TierId {
   const stored = readStore<string>('wl.tier', 'premise');
   return TIER_ORDER.includes(stored as TierId) ? (stored as TierId) : 'premise';
@@ -81,7 +80,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [tier, setTierState] = useState<TierId>(initialTier);
   const [media, setMedia] = useState<MediaKey[]>(() => initialMedia(initialTier()));
   const [motionPref, setMotionPrefState] = useState<MotionPref>(() => readStore<MotionPref>('wl.motion', 'system'));
-  const [prefs, setPrefs] = useState<Prefs>(() => ({ ...DEFAULT_PREFS, ...readStore<Partial<Prefs>>('wl.prefs', {}) }));
+  const [prefs, setPrefs] = useState<Prefs>(initialPrefs);
   const [legendOpen, setLegendOpen] = useState(false);
   const [focusedLine, setFocusedLine] = useState<string | null>(null);
   const [peeks, setPeeks] = useState<Set<string>>(() => new Set());
@@ -134,6 +133,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     document.documentElement.dataset.text = prefs.largeText ? 'large' : 'normal';
   }, [prefs.largeText]);
 
+  useEffect(() => {
+    document.documentElement.dataset.sources = prefs.showSources ? 'on' : 'off';
+  }, [prefs.showSources]);
+
   const peek = useCallback((key: string) => setPeeks((p) => new Set(p).add(key)), []);
 
   const value = useMemo(
@@ -148,6 +151,12 @@ export function useSettings(): Settings {
   const ctx = useContext(SettingsContext);
   if (!ctx) throw new Error('useSettings needs SettingsProvider');
   return ctx;
+}
+
+/** True when the visitor has switched source notes on. Outside the provider (isolated tests) they show. */
+export function useShowSources(): boolean {
+  const ctx = useContext(SettingsContext);
+  return ctx ? ctx.prefs.showSources : true;
 }
 
 function useSystemReducedMotion(): boolean {

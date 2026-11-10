@@ -59,7 +59,10 @@ export function Nixie({ value, size = 'md', label }: NixieProps) {
     <span className={`nixie nixie-${size}`} role="img" aria-label={label ?? (value ? `Divergence ${value}` : 'No world line in focus')}>
       {shown.map((digit, i) => (
         <span key={i} className={digit === '.' ? 'tube tube-dot' : 'tube'} aria-hidden="true">
-          <span className="tube-digit">{digit}</span>
+          {/* A digit that has reached its final value is mounted afresh, so it drops into place once. */}
+          <span key={digit === target[i] ? `set-${digit}` : 'roll'} className={digit === target[i] ? 'tube-digit is-set' : 'tube-digit'}>
+            {digit}
+          </span>
         </span>
       ))}
     </span>

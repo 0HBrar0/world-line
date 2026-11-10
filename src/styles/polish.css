@@ -199,7 +199,7 @@ a.tile:hover { transform: translateY(-3px); }
 .follow-map .map-node:hover .node-core { transform: scale(1.7); }
 /* With the whole story in view only the points and their lines remain; the fine print returns on zooming in */
 .bracket, .edge-badge, .node-conflict, .node-date-dot, .node-halo, .node-ring { transition: opacity 180ms linear; }
-.map-svg.is-overview :is(.bracket, .edge-badge, .node-conflict, .node-date-dot, .node-ring, .float-connector text) { opacity: 0; }
+.map-svg.is-overview :is(.bracket, .node-conflict, .node-date-dot, .node-ring, .float-connector text) { opacity: 0; }
 .map-svg.is-overview .node-halo { opacity: 0; }
 .map-svg.is-overview .map-node:hover .node-halo, .map-svg.is-overview .map-node.is-selected .node-halo { opacity: 0.4; }
 .band-label { font: italic 400 15px var(--font-display); letter-spacing: 0; text-transform: none; fill: var(--ink-0); opacity: 0.8; }

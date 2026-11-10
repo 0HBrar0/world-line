@@ -1,6 +1,7 @@
 import type { Confidence } from '../data/schema';
 import { canon } from '../data/load';
 import { splitClauses } from '../data/tierGuard';
+import { useShowSources } from '../app/settings';
 import { useSourceDrawer, type SourceTarget } from './drawer';
 
 const ICONS: Record<Confidence, string> = { CONFIRMED: '✔', INTERPRETATION: '◐', UNCLEAR: '?' };
@@ -20,12 +21,14 @@ export function badgeText(item: { confidence?: Confidence; singleSource?: boolea
 
 /**
  * The confidence pill. It is also the source affordance: pressing it opens the source drawer,
- * so every fact that shows a badge links to its sources.
+ * so every fact that shows a badge links to its sources. Hidden until the visitor turns Sources on.
  */
 export function Badge({ target, compact = false }: { target: SourceTarget; compact?: boolean }) {
   const openDrawer = useSourceDrawer();
+  const show = useShowSources();
   const confidence = target.confidence ?? 'UNCLEAR';
   const text = badgeText(target);
+  if (!show) return null;
   return (
     <button
       type="button"
@@ -41,12 +44,15 @@ export function Badge({ target, compact = false }: { target: SourceTarget; compa
 
 /** A small dot beside a date or number whose own confidence differs from the fact's. */
 export function SubConfidence({ confidence, what }: { confidence?: Confidence; what: string }) {
-  if (!confidence || confidence === 'CONFIRMED') return null;
+  const show = useShowSources();
+  if (!show || !confidence || confidence === 'CONFIRMED') return null;
   return <span className={`sub-dot sub-${confidence.toLowerCase()}`} role="note" title={`${what}: ${confidence}`} aria-label={`${what}: ${confidence}`} />;
 }
 
 export function ConfidenceLegend() {
   const levels: Confidence[] = ['CONFIRMED', 'INTERPRETATION', 'UNCLEAR'];
+  const show = useShowSources();
+  if (!show) return null;
   return (
     <section className="legend" aria-label="Confidence legend">
       {levels.map((level) => (

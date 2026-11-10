@@ -51,10 +51,11 @@ test.describe('desktop map', () => {
     await expect(node).toBeAttached();
     await page.waitForTimeout(300);
     const before = (await node.boundingBox())!.x;
-    await page.getByRole('button', { name: "Okabe's order" }).click();
+    // The map opens in the order lived; by the calendar the attempts go back to July 28.
+    await page.getByRole('button', { name: 'Calendar order' }).click();
     await page.waitForTimeout(900);
     const after = (await node.boundingBox())!.x;
-    expect(after - before).toBeGreaterThan(150);
+    expect(before - after).toBeGreaterThan(150);
   });
 
   for (const tier of order) {

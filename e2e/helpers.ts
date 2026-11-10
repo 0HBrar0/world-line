@@ -15,3 +15,8 @@ export async function setTier(page: Page, tier: Tier, media?: string[]) {
 }
 
 export const shot = (phase: string, name: string, project: string) => `e2e/__screenshots__/${phase}/${name}-${project}.png`;
+
+/** Starts the app with the Sources switch on, so badges and source notes are shown. */
+export async function showSources(page: Page) {
+  await page.addInitScript(() => window.localStorage.setItem('wl.prefs', JSON.stringify({ showSources: true })));
+}

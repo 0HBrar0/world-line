@@ -1,6 +1,6 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
-import { setTier, shot, type Tier } from './helpers';
+import { setTier, shot, showSources, type Tier } from './helpers';
 
 const ROUTES: Array<[string, string]> = [
   ['home', '/#/'],
@@ -34,6 +34,7 @@ for (const tier of ['premise', 'extras'] as Tier[]) {
 }
 
 test('axe: source drawer and tier dialog', async ({ page }) => {
+  await showSources(page);
   await page.goto('/#/');
   await page.locator('.home-grid .badge').first().click();
   await expect(page.getByRole('dialog', { name: 'Sources' })).toBeVisible();
@@ -43,6 +44,7 @@ test('axe: source drawer and tier dialog', async ({ page }) => {
 });
 
 test('drawer traps focus and restores it to the badge', async ({ page }) => {
+  await showSources(page);
   await page.goto('/#/');
   const badge = page.locator('.home-grid .badge').first();
   await badge.focus();

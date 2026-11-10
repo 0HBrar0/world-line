@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { TickMark } from './Motifs';
 
 export const PACES = [0.5, 1, 1.5, 2];
 
@@ -54,6 +55,7 @@ export function GlassDock({ className, label, playing, playDisabled, canBack, ca
           ⏭
         </button>
       )}
+      {playing && <TickMark />}
       <label className="glass-pace">
         <span className="sr-only">Pace</span>
         <select value={pace} onChange={(e) => onPace(Number(e.target.value))}>

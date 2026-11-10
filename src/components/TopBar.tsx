@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { href, useRoute } from '../app/router';
 import { MEDIA_KEYS, tierIndex, useSettings, type MediaKey, type TierId } from '../app/settings';
 import canonMeta from '../data/meta';
+import { GearMark } from './Motifs';
 import { Nixie } from './Nixie';
 import { SettingsPanel } from './SettingsPanel';
 import { useFocusTrap } from './useFocusTrap';
@@ -98,7 +99,7 @@ export function MediaChips() {
 
 export function TopBar({ readout }: { readout: string | null }) {
   const route = useRoute();
-  const { legendOpen, setLegendOpen, motionPref, setMotionPref } = useSettings();
+  const { legendOpen, setLegendOpen, motionPref, setMotionPref, prefs, setPref } = useSettings();
   const [panel, setPanel] = useState<'filters' | 'settings' | null>(null);
   const controls = useRef<HTMLDivElement>(null);
   const active = route.path[0] ?? '';
@@ -121,6 +122,7 @@ export function TopBar({ readout }: { readout: string | null }) {
     <header className="topbar">
       <div className="topbar-row">
         <a className="wordmark" href={href('')}>
+          <GearMark />
           World Line
         </a>
         <Nixie value={readout} size="sm" />
@@ -137,6 +139,9 @@ export function TopBar({ readout }: { readout: string | null }) {
       </div>
       <div ref={controls} className="topbar-row topbar-controls">
         <TierControl />
+        <button type="button" className="btn sources-toggle" aria-pressed={prefs.showSources} title="Show how sure each fact is, where it comes from and where sources disagree" onClick={() => setPref('showSources', !prefs.showSources)}>
+          Sources
+        </button>
         <button type="button" className="btn filters-toggle" aria-expanded={panel === 'filters'} onClick={() => setPanel((open) => (open === 'filters' ? null : 'filters'))}>
           Filters
         </button>
@@ -146,9 +151,11 @@ export function TopBar({ readout }: { readout: string | null }) {
         {panel === 'settings' && <SettingsPanel />}
         <div className={panel === 'filters' ? 'filters filters-open' : 'filters'}>
           <MediaChips />
-          <button type="button" className="btn btn-quiet" aria-pressed={legendOpen} onClick={() => setLegendOpen(!legendOpen)}>
-            Confidence legend
-          </button>
+          {prefs.showSources && (
+            <button type="button" className="btn btn-quiet" aria-pressed={legendOpen} onClick={() => setLegendOpen(!legendOpen)}>
+              Confidence legend
+            </button>
+          )}
           <button type="button" className="btn btn-quiet" aria-pressed={reduceOn} onClick={() => setMotionPref(reduceOn ? 'system' : 'reduce')}>
             Reduce motion
           </button>

@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useRoute } from '../../app/router';
-import { useSettings } from '../../app/settings';
+import { useSettings, useShowSources } from '../../app/settings';
 import { Badge } from '../../components/Badge';
 import { formatDate } from '../../components/format';
+import { DmailSend } from '../../components/Motifs';
 import { Nixie } from '../../components/Nixie';
 import { useFocusTrap } from '../../components/useFocusTrap';
 import { canon } from '../../data/load';
@@ -32,6 +33,7 @@ const shownLine = (id: string | null, tier: Tier) => {
 
 /** One D-Mail as a file: when it went, where it landed, what it said, and what it moved. */
 export function DmailFile({ event, tier, headingLevel = 2 }: { event: StoryEvent; tier: Tier; headingLevel?: 2 | 3 }) {
+  const sources = useShowSources();
   const transition = event.transitionId ? transitionById(event.transitionId) : undefined;
   const open = transition && tierRank(transitionTier(transition)) <= tierRank(tier) ? transition : undefined;
   const cancelling = transition?.mechanism === 'dmail_cancellation';
@@ -74,12 +76,13 @@ export function DmailFile({ event, tier, headingLevel = 2 }: { event: StoryEvent
           </div>
         )}
       </dl>
+      <DmailSend />
       <div className="dmail-screen">
         {exact ? (
           <>
             <p className="dmail-label">The message, as sent</p>
             <blockquote>{exact}</blockquote>
-            {event.dmailText!.version && <p className="dmail-note">{event.dmailText!.version}</p>}
+            {sources && event.dmailText!.version && <p className="dmail-note">{event.dmailText!.version}</p>}
             <Badge compact target={{ id: event.id, title: 'Message text', confidence: event.dmailText!.confidence, sourceIds: event.dmailText!.sourceIds, singleSource: event.dmailText!.singleSource, singleSourceKind: event.dmailText!.singleSourceKind }} />
             <p className="dmail-label">What happened</p>
             <p>{happened}</p>
@@ -104,7 +107,7 @@ export function DmailFile({ event, tier, headingLevel = 2 }: { event: StoryEvent
           {changed && <p>{changed}</p>}
         </section>
       )}
-      {arrivals.length > 0 && (
+      {sources && arrivals.length > 0 && (
         <section>
           <Sub>Where sources disagree</Sub>
           <ul className="fact-list">

@@ -9,18 +9,20 @@ import { formatDate } from '../../components/format';
 import { useToast } from '../../components/toast';
 import { canon } from '../../data/load';
 import type { Tier } from '../../data/schema';
-import { atLeast, eventById, isVisible, lineFromPublicId, lineLabel, transitionById, visibleEvents, worldLineById, type EventOrder } from '../../data/selectors';
+import { atLeast, eventById, glossaryById, isVisible, lineFromPublicId, lineLabel, transitionById, visibleEvents, worldLineById, type EventOrder } from '../../data/selectors';
 import { safeText } from '../../data/tierGuard';
 import { DetailPanel, type Selection } from './DetailPanel';
-import { buildMapModel, neighbourNode, type MapEdge, type MapModel } from './layout';
+import { ROPE_GLOSSARY } from './constants';
+import { buildMapModel, neighbourNode, type MapEdge, type MapModel, type MapRope } from './layout';
 import { MapCanvas } from './MapCanvas';
 import { MiniMap } from './MiniMap';
 import { MobileTimeline } from './MobileTimeline';
 import { MapList, SpinOffGutter } from './MapList';
+import { RopeKey } from './RopeKey';
 import { eventTarget, lineTarget, transitionTarget } from './targets';
 
 // Marks are never drawn smaller than this at the full view, or bigger than this zoomed all the way in.
-const MARK_AT_FIT = 0.67;
+const MARK_AT_FIT = 0.92;
 const MARK_AT_MOST = 2.6;
 const STEP_ZOOM = 1.6;
 const EDGE_ROOM = 12;
@@ -62,7 +64,7 @@ export function MapPage() {
   const toast = useToast();
   const { w, h } = useViewport();
 
-  const [order, setOrder] = useState<EventOrder>('calendar');
+  const [order, setOrder] = useState<EventOrder>('seq');
   const [zoom, setZoom] = useState<number | null>(null);
   const [pan, setPan] = useState(0);
   const [rise, setRise] = useState(0);
@@ -80,7 +82,7 @@ export function MapPage() {
 
   const mobile = w < 768;
   const docked = w >= 1280 && !!selection;
-  const mapHeight = Math.max(380, h - 226);
+  const mapHeight = Math.max(380, h - 290);
 
   useLayoutEffect(() => {
     const el = svgHost.current;
@@ -336,9 +338,36 @@ export function MapPage() {
       setHover(null);
       return;
     }
-    const title = edge.collapsed ? `${edge.hiddenSteps} steps hidden by media filter` : EDGE_STYLES[edge.mechanism].label;
+    const title = edge.collapsed ? `${edge.hiddenSteps} steps hidden by media filter` : `${EDGE_STYLES[edge.mechanism].label}${edge.number ? ` ${String(edge.number).padStart(2, '0')}` : ''}`;
     setHover({ text: { title, date: '', summary: edge.collapsed ? '' : 'Click for details.' }, x, y });
   }, []);
+
+  // A knot states its rope's fixed outcome in the glossary's own words.
+  const knotEntry = useCallback(
+    (rope: MapRope) => {
+      const entry = glossaryById(ROPE_GLOSSARY[rope.kind]);
+      return entry && isVisible(entry, tier) ? entry : undefined;
+    },
+    [tier],
+  );
+  const onHoverKnot = useCallback(
+    (rope: MapRope | null, x: number, y: number) => {
+      const entry = rope ? knotEntry(rope) : undefined;
+      if (!rope || !entry) {
+        setHover(null);
+        return;
+      }
+      setHover({ text: { title: `${rope.label} knot`, date: '', summary: safeText(entry.plainLanguage, tier) }, x, y });
+    },
+    [knotEntry, tier],
+  );
+  const onActivateKnot = useCallback(
+    (rope: MapRope) => {
+      const entry = knotEntry(rope);
+      if (entry) navigate(`glossary/${entry.id}`);
+    },
+    [knotEntry],
+  );
 
   const onPan = useCallback((x: number, y: number) => {
     setDuration(0);
@@ -430,6 +459,7 @@ export function MapPage() {
             List view
           </button>
         </div>
+        <RopeKey model={model} tier={tier} media={media} />
         <p className="sr-only" id="map-instructions">
           Tab enters the map. Left and right arrows move along the current time order. Up and down jump to the world line above or below. Enter opens details. E cycles the edges leaving a node, M plays the mechanic for an edge, O switches the time order, S opens sources, plus and minus zoom, 0 fits the story, Escape closes the panel.
         </p>
@@ -462,6 +492,8 @@ export function MapPage() {
             onPanLive={onPanLive}
             onZoomWheel={zoomBy}
             onSgInfo={showSgInfo}
+            onHoverKnot={onHoverKnot}
+            onActivateKnot={onActivateKnot}
           />
           {storyEvent && (
             <div className="glass-now">
@@ -528,14 +560,14 @@ function MapIntro({ order, toggleOrder }: { order: EventOrder; toggleOrder: () =
   return (
     <div className="map-intro">
       <div className="segmented" role="group" aria-label="Time order">
-        <button type="button" className="btn" aria-pressed={order === 'calendar'} onClick={() => order !== 'calendar' && toggleOrder()}>
-          Calendar order
-        </button>
         <button type="button" className="btn" aria-pressed={order === 'seq'} onClick={() => order !== 'seq' && toggleOrder()}>
           Okabe's order
         </button>
+        <button type="button" className="btn" aria-pressed={order === 'calendar'} onClick={() => order !== 'calendar' && toggleOrder()}>
+          Calendar order
+        </button>
       </div>
-      <p className="map-caption">Calendar order = when it happened. Okabe's order = when he lived it.</p>
+      <p className="map-caption">{order === 'seq' ? 'Left to right is the order Okabe lived it. Follow the red strand.' : 'Left to right is when each thing happened, so the red strand doubles back.'}</p>
     </div>
   );
 }

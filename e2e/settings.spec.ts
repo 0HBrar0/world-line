@@ -7,17 +7,18 @@ test('settings open next to Filters, are saved, and reset', async ({ page }) => 
   const filters = (await page.locator('.filters-toggle').boundingBox())!;
   expect((await toggle.boundingBox())!.x).toBeGreaterThan(filters.x);
   await toggle.click();
-  const drifters = page.getByRole('switch', { name: /Things drifting off Earth/ });
-  await expect(drifters).toBeChecked();
-  await drifters.click();
-  await expect(page.getByLabel('How often')).toHaveCount(0);
+  // Options from the old space views are gone.
+  await expect(page.locator('.settings-panel')).not.toContainText(/Space|Rocket|Graphics/);
+  const large = page.getByRole('switch', { name: 'Larger text' });
+  await expect(large).not.toBeChecked();
+  await large.click();
   const results = await new AxeBuilder({ page }).include('.settings-panel').analyze();
   expect(results.violations).toEqual([]);
   await page.reload();
   await page.getByRole('button', { name: 'Settings' }).click();
-  await expect(page.getByRole('switch', { name: /Things drifting off Earth/ })).not.toBeChecked();
+  await expect(page.getByRole('switch', { name: 'Larger text' })).toBeChecked();
   await page.getByRole('button', { name: 'Reset to defaults' }).click();
-  await expect(page.getByRole('switch', { name: /Things drifting off Earth/ })).toBeChecked();
+  await expect(page.getByRole('switch', { name: 'Larger text' })).not.toBeChecked();
   await page.keyboard.press('Escape');
   await expect(page.locator('.settings-panel')).toHaveCount(0);
 });

@@ -1,20 +1,45 @@
-import { memo, useCallback, useEffect, useMemo, useRef, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { motion } from 'framer-motion';
 import { useReduceMotion } from '../../app/settings';
 import { EDGE_STYLES } from '../../components/glyphs';
-import { MechIconGroup } from '../../components/MechIcon';
 import { formatDate } from '../../components/format';
 import type { Tier } from '../../data/schema';
-import { atLeast, eventById, lineLabel, transitionById, worldLineById } from '../../data/selectors';
+import { eventById, lineLabel, transitionById, worldLineById } from '../../data/selectors';
 import { safeText } from '../../data/tierGuard';
-import { KNOT_EVENTS } from './constants';
-import { declutter, type MapEdge, type MapModel, type MapNode } from './layout';
+import { HopMark } from './HopMark';
+import { declutter, type MapEdge, type MapModel, type MapNode, type MapRope } from './layout';
 
 const EASE = [0.2, 0, 0, 1] as const;
 
 function edgePath(e: MapEdge): string {
   const mid = (e.from.y + e.to.y) / 2;
   return `M ${e.from.x} ${e.from.y} C ${e.from.x + 2} ${mid}, ${e.to.x - 2} ${mid}, ${e.to.x} ${e.to.y}`;
+}
+
+const smooth = (a: number, b: number, x: number) => {
+  const k = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  return k * k * (3 - 2 * k);
+};
+
+/** A rope's threads: flat across the story, then twisting together and pinching shut at the knot. */
+function ropePath(rope: MapRope, tight = false): string {
+  const n = rope.ys.length;
+  const half = (rope.ys[n - 1] - rope.ys[0]) / 2;
+  const amp = Math.min(38, Math.max(8, half * 0.5)) * (tight ? 0.35 : 1);
+  const span = rope.knotX - rope.x0;
+  const STEPS = 36;
+  return rope.ys
+    .map((y, i) => {
+      let d = `M -2000 ${y} L ${rope.x0} ${y}`;
+      for (let s = 1; s <= STEPS; s += 1) {
+        const u = s / STEPS;
+        const blend = smooth(0, 0.3, u);
+        const twist = rope.knotY + amp * (1 - smooth(0.72, 1, u)) * Math.sin(u * Math.PI * 3.2 + (i * 2 * Math.PI) / n);
+        d += ` L ${(rope.x0 + span * u).toFixed(1)} ${(y * (1 - blend) + twist * blend).toFixed(1)}`;
+      }
+      return d;
+    })
+    .join(' ');
 }
 
 export function nodeLabel(node: MapNode, tier: Tier, index: number, total: number): string {
@@ -33,6 +58,8 @@ interface NodeProps {
   tier: Tier;
   label: string;
   selected: boolean;
+  /** The last event unlocked: where the red strand stops for now. */
+  latest: boolean;
   focusable: boolean;
   dimmed: boolean;
   duration: number;
@@ -43,17 +70,16 @@ interface NodeProps {
   onHover: (id: string | null, x: number, y: number) => void;
 }
 
-const Node = memo(function Node({ node, tier, label, selected, focusable, dimmed, duration, marks, onActivate, onFocusNode, onHover }: NodeProps) {
+const Node = memo(function Node({ node, label, selected, latest, focusable, dimmed, duration, marks, onActivate, onFocusNode, onHover }: NodeProps) {
   const event = node.kind === 'event' ? eventById(node.id) : null;
   const line = node.kind === 'line' ? worldLineById(node.id) : null;
   const confidence = event?.confidence ?? line?.divergenceConfidence ?? 'CONFIRMED';
-  const knot = !!event && KNOT_EVENTS.has(event.id) && atLeast(tier, 'sg_part2');
   const conflicted = (event?.conflicts.length ?? 0) > 0;
   const dateUnsure = event?.dateConfidence === 'UNCLEAR';
 
   return (
     <motion.g
-      className={`map-node${selected ? ' is-selected' : ''}`}
+      className={`map-node${selected ? ' is-selected' : ''}${latest ? ' is-latest' : ''}`}
       data-node={node.id}
       role="button"
       tabIndex={focusable ? 0 : -1}
@@ -75,7 +101,6 @@ const Node = memo(function Node({ node, tier, label, selected, focusable, dimmed
         className={`node-core node-${confidence.toLowerCase()}`}
         strokeDasharray={confidence === 'UNCLEAR' ? '2 2' : undefined}
       />
-      {knot && <path className="node-knot" d="M-4 -4 L4 4 M4 -4 L-4 4" />}
       {conflicted && (
         <text className="node-conflict" x="7" y="-7" aria-hidden="true">
           ⇆
@@ -120,6 +145,8 @@ interface CanvasProps {
   onPanLive?: (panX: number, panY: number) => { x: number; y: number };
   onZoomWheel: (factor: number, screenX: number, screenY: number) => void;
   onSgInfo: () => void;
+  onHoverKnot?: (rope: MapRope | null, x: number, y: number) => void;
+  onActivateKnot?: (rope: MapRope) => void;
 }
 
 export function MapCanvas({
@@ -150,6 +177,8 @@ export function MapCanvas({
   onPanLive,
   onZoomWheel,
   onSgInfo,
+  onHoverKnot,
+  onActivateKnot,
 }: CanvasProps) {
   const reduce = useReduceMotion();
   const svg = useRef<SVGSVGElement>(null);
@@ -158,6 +187,9 @@ export function MapCanvas({
   const rows = useRef<SVGGElement>(null);
   const drag = useRef<{ startX: number; startY: number; panX: number; panY: number; moved: boolean; x: number; y: number } | null>(null);
   const moveDuration = reduce ? 0 : duration;
+  // The red strand is drawn in once, left to right, when the map first opens.
+  const [drawn, setDrawn] = useState(false);
+  const [tightKnot, setTightKnot] = useState<string | null>(null);
   const panRef = useRef(panX);
   panRef.current = panX;
   const panYRef = useRef(panY);
@@ -313,6 +345,24 @@ export function MapCanvas({
             <line key={`${t.label}-${t.x}`} className="tick-line" x1={t.x / zoom} x2={t.x / zoom} y1={0} y2={model.height} />
           ))}
 
+          <path
+            className="thread"
+            d={model.threads
+              .filter((t) => t.until === null)
+              .map((t) => `M -2000 ${t.y} H ${model.width + 2000}`)
+              .join(' ')}
+          />
+          {model.ropes.map((r) => (
+            <motion.path key={r.kind} className="thread thread-rope" initial={false} animate={{ d: ropePath(r, tightKnot === r.kind) }} transition={{ duration: reduce ? 0 : 0.35, ease: EASE }} />
+          ))}
+
+          {!reduce && !drawn && (
+            <clipPath id="strand-draw">
+              <motion.rect x={-40} y={-40} height={model.height + 80} initial={{ width: 0 }} animate={{ width: model.width + 80 }} transition={{ duration: 1.3, ease: 'easeInOut', delay: 0.15 }} onAnimationComplete={() => setDrawn(true)} />
+            </clipPath>
+          )}
+          <g className="strand" clipPath={!reduce && !drawn ? 'url(#strand-draw)' : undefined}>
+
           {model.tracks.map((t) => (
             <motion.line
               key={t.lineId}
@@ -347,16 +397,16 @@ export function MapCanvas({
           {model.edges.map((e) => {
             const style = EDGE_STYLES[e.mechanism];
             const active = !spotlightEdgeId || spotlightEdgeId === e.id;
-            const width = e.crosses ? 3.5 : 2;
+            const width = e.crosses ? 4.5 : 3;
             const path = edgePath(e);
             const drawOn = spotlightEdgeId === e.id && !reduce;
             const label = e.collapsed
               ? `${e.hiddenSteps} ${e.hiddenSteps === 1 ? 'step' : 'steps'} hidden by media filter`
-              : `${style.label} edge`;
+              : `${style.label}${e.number ? ` ${String(e.number).padStart(2, '0')}` : ''}: a jump to another thread`;
             return (
               <g
                 key={e.id}
-                className={`map-edge${selectedEdgeId === e.id ? ' is-selected' : ''}`}
+                className={`map-edge${selectedEdgeId === e.id ? ' is-selected' : ''}${e.branch ? ' is-branch' : ''}`}
                 data-edge={e.id}
                 role="button"
                 tabIndex={-1}
@@ -367,39 +417,32 @@ export function MapCanvas({
                 onPointerLeave={() => hoverEdge(null, 0, 0)}
               >
                 <motion.path className="edge-hit" initial={false} animate={{ d: path }} transition={{ duration: moveDuration, ease: EASE }} />
-                <motion.path className="edge-halo" stroke={style.color} strokeWidth={width + 7} initial={false} animate={{ d: path }} transition={{ duration: moveDuration, ease: EASE }} />
-                {style.double && !e.collapsed && (
-                  <motion.path
-                    className="edge-line"
-                    stroke={style.color}
-                    strokeWidth={width + 3}
-                    initial={false}
-                    animate={{ d: path }}
-                    transition={{ duration: moveDuration, ease: EASE }}
-                  />
-                )}
+                <motion.path className="edge-halo" strokeWidth={width + 7} initial={false} animate={{ d: path }} transition={{ duration: moveDuration, ease: EASE }} />
                 <motion.path
                   key={drawOn ? 'draw' : 'static'}
                   className="edge-line"
-                  stroke={style.double && !e.collapsed ? 'var(--bg-0)' : style.color}
-                  strokeWidth={style.double && !e.collapsed ? 2 : width}
-                  strokeDasharray={e.collapsed ? '6 4' : drawOn ? undefined : style.dash}
+                  strokeWidth={width}
+                  strokeDasharray={e.collapsed ? '6 4' : undefined}
                   initial={drawOn ? { pathLength: 0, d: path } : false}
                   animate={{ d: path, pathLength: 1 }}
                   transition={{ duration: drawOn ? 0.7 : moveDuration, ease: EASE }}
                 />
-                <motion.g className="edge-badge" initial={false} animate={{ x: e.to.x + 11, y: (e.from.y + e.to.y) / 2 }} transition={{ duration: moveDuration, ease: EASE }}>
-                  {e.collapsed ? (
-                    <text className="edge-glyph" fill={style.color} textAnchor="middle" y="4" aria-hidden="true">
-                      ⋯
-                    </text>
-                  ) : (
-                    <MechIconGroup kind={e.mechanism} color={style.color} />
-                  )}
+                <motion.g className="edge-badge" initial={false} animate={{ x: (e.from.x + e.to.x) / 2, y: (e.from.y + e.to.y) / 2 }} transition={{ duration: moveDuration, ease: EASE }}>
+                  <g transform={marks === 1 ? undefined : `scale(${marks})`}>
+                    {e.collapsed ? (
+                      <text className="edge-glyph" textAnchor="middle" y="4" aria-hidden="true">
+                        ⋯
+                      </text>
+                    ) : (
+                      <HopMark mechanism={e.mechanism} number={e.number} />
+                    )}
+                  </g>
                 </motion.g>
               </g>
             );
           })}
+
+          </g>
 
           {model.arcs.map((a) => {
             const top = -Math.abs(a.fromX - a.toX) * 0.06 + Math.min(a.fromY, a.toY) - 8;
@@ -412,6 +455,43 @@ export function MapCanvas({
             );
           })}
 
+          {model.ropes.map((r) => (
+            <g
+              key={r.kind}
+              className="rope-knot"
+              data-knot={r.kind}
+              role="button"
+              tabIndex={interactive ? 0 : -1}
+              aria-label={`${r.label} knot: where every thread in this rope ends up. Opens its glossary entry.`}
+              transform={`translate(${r.knotX} ${r.knotY})`}
+              onClick={() => onActivateKnot?.(r)}
+              onKeyDown={(k) => {
+                if (k.key !== 'Enter' && k.key !== ' ') return;
+                k.preventDefault();
+                k.stopPropagation();
+                onActivateKnot?.(r);
+              }}
+              onPointerEnter={(p) => {
+                setTightKnot(r.kind);
+                onHoverKnot?.(r, p.clientX, p.clientY);
+              }}
+              onPointerLeave={() => {
+                setTightKnot(null);
+                onHoverKnot?.(null, 0, 0);
+              }}
+              onFocus={() => setTightKnot(r.kind)}
+              onBlur={() => setTightKnot(null)}
+            >
+              <g transform={marks === 1 ? undefined : `scale(${marks})`}>
+                <circle className="node-hit" r="16" />
+                <circle className="knot-core" r="8" />
+                <text x="15" y="4">
+                  {r.label} knot
+                </text>
+              </g>
+            </g>
+          ))}
+
           {model.nodes.map((node) => {
             const index = orderedIds.indexOf(node.id);
             return (
@@ -421,6 +501,7 @@ export function MapCanvas({
                 tier={tier}
                 label={nodeLabel(node, tier, index, orderedIds.length)}
                 selected={selectedId === node.id}
+                latest={model.latestId === node.id}
                 focusable={interactive && (focusId ? focusId === node.id : index === 0)}
                 dimmed={dimmedNode(node.id)}
                 duration={moveDuration}
@@ -463,7 +544,7 @@ export function MapCanvas({
         (b) =>
           b.label && (
             <text key={b.key} className="band-label" x={gutter + 8} y={b.y0 * zoom + 12}>
-              {b.label}
+              {b.kind === 'alpha' || b.kind === 'beta' ? `${b.label} rope` : b.label}
             </text>
           ),
       )}

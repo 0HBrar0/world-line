@@ -1,4 +1,4 @@
-import { useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { MotionConfig } from 'framer-motion';
 import { useRoute } from './router';
 import { SettingsProvider, useReduceMotion, useSettings } from './settings';
@@ -6,7 +6,8 @@ import { ConfidenceLegend } from '../components/Badge';
 import { CreatorUplink } from '../components/CreatorUplink';
 import { DeviceNotice } from '../components/DeviceNotice';
 import { Backdrop } from '../components/GearClock';
-import { Secrets } from '../components/Secrets';
+import { ReadingThread } from '../components/Motifs';
+import { Blip, Secrets } from '../components/Secrets';
 import { SourceDrawerProvider } from '../components/drawer';
 import { ToastProvider } from '../components/toast';
 import { TopBar } from '../components/TopBar';
@@ -111,6 +112,10 @@ function Shell() {
 
   useEffect(() => setLegendOpen(false), [name, setLegendOpen]);
 
+  // Every change of page after the first gets a short burst of static.
+  const turns = useRef({ name, count: 0 });
+  if (turns.current.name !== name) turns.current = { name, count: turns.current.count + 1 };
+
   // Stylesheet animations follow the same motion setting as everything else.
   useEffect(() => {
     document.documentElement.dataset.motion = reduce ? 'reduce' : 'full';
@@ -124,6 +129,8 @@ function Shell() {
   return (
     <MotionConfig reducedMotion={reduce ? 'always' : 'never'}>
       <Backdrop />
+      <ReadingThread />
+      <Blip token={turns.current.count} />
       <SkipLink target="main">Skip to content</SkipLink>
       {name === 'map' && <SkipLink target="map-list">Skip to map list</SkipLink>}
       <TopBar readout={readout} />

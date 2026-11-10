@@ -20,7 +20,7 @@ import { monthLabel, shortDay } from '../../components/format';
 // position comes from what is visible at the tier, so spacing cannot hint at hidden content.
 
 export const GUTTER = 118;
-export const GUTTER_PREMISE = 196;
+export const GUTTER_PREMISE = 304;
 const LENS_MIN_GAP = 34;
 const DAY_MIN = 30;
 const DAY_EVENT = 26;
@@ -28,6 +28,9 @@ const MONTH_SLOT = 64;
 const SEQ_STEP = 46;
 const SEQ_START = 130;
 const EDGE_RUN = 16;
+/** Room after the story where a rope's threads twist together and meet at its knot. */
+const ROPE_TAIL = 420;
+const KNOT_AT = 210;
 
 export type RowKind = 'alpha' | 'beta' | 'neutral' | 'steins_gate' | 'sg0' | 'vn_ending' | 'float';
 
@@ -61,7 +64,11 @@ export interface MapEdge {
   mechanism: Mechanism;
   collapsed: boolean;
   hiddenSteps: number;
+  /** Counted per kind of jump in the order lived, the same numbers the Chronicle uses. */
+  number: number | null;
   crosses: boolean;
+  /** Leads to an ending the main story does not take, so it is not part of the red strand. */
+  branch: boolean;
   fromNode: string | null;
   from: { x: number; y: number };
   to: { x: number; y: number };
@@ -73,6 +80,24 @@ export interface MapTrack {
   x1: number;
   x2: number;
   unclear: boolean;
+}
+
+/** A thread is one world line, drawn across the whole map. The lived part of it is its track. */
+export interface MapThread {
+  lineId: string;
+  y: number;
+  /** Where the thread stops being flat: the start of its rope's twist, or null when it is in no rope. */
+  until: number | null;
+}
+
+/** A rope is an attractor field: its threads twist together after the story and meet at one knot. */
+export interface MapRope {
+  kind: 'alpha' | 'beta';
+  label: string;
+  ys: number[];
+  x0: number;
+  knotX: number;
+  knotY: number;
 }
 
 export interface MapTick {
@@ -103,6 +128,10 @@ export interface MapModel {
   nodes: MapNode[];
   edges: MapEdge[];
   tracks: MapTrack[];
+  threads: MapThread[];
+  ropes: MapRope[];
+  /** The last event the visitor has unlocked, in the order lived. */
+  latestId: string | null;
   ticks: MapTick[];
   brackets: MapBracket[];
   arcs: MapArc[];
@@ -325,10 +354,17 @@ function calendarPositions(events: StoryEvent[]) {
 function seqPositions(events: StoryEvent[]) {
   const ordered = [...events].sort((a, b) => a.seq - b.seq);
   const positions = new Map(ordered.map((e, i) => [e.id, SEQ_START + i * SEQ_STEP]));
-  const ticks: MapTick[] = ordered
-    .map((_e, i) => ({ x: SEQ_START + i * SEQ_STEP, label: `#${i + 1}`, major: true, i }))
-    .filter((t) => t.i % 5 === 0)
-    .map(({ x, label, major }) => ({ x, label, major }));
+  // The lived order has no even scale, so the axis names each new date as the story reaches it.
+  const ticks: MapTick[] = [];
+  let lastLabel = '';
+  ordered.forEach((e, i) => {
+    if (!e.date || e.sortDateIsEditorial) return;
+    const full = /^\d{4}-\d{2}-\d{2}$/.test(e.date);
+    const label = full ? (e.date.startsWith('2010') ? shortDay(e.date) : `${shortDay(e.date)} ${e.date.slice(0, 4)}`) : monthLabel(e.date);
+    if (label === lastLabel) return;
+    lastLabel = label;
+    ticks.push({ x: SEQ_START + i * SEQ_STEP - 8, label, major: true });
+  });
   return { positions, ticks, brackets: [], breaks: [] as number[], width: SEQ_START + 30 + ordered.length * SEQ_STEP };
 }
 
@@ -356,6 +392,16 @@ export function buildMapModel(tier: Tier, media: Media[], order: EventOrder, hei
 
   const nodeById = new Map(nodes.map((n) => [n.id, n]));
   const edges: MapEdge[] = [];
+  const numbers = new Map<string, number>();
+  const counts = new Map<Mechanism, number>();
+  const lived = visibleEvents(tier, media, 'seq');
+  const open = new Map(visibleTransitions(tier, media).map((t) => [t.cause, t]));
+  for (const e of lived) {
+    const t = open.get(e.id);
+    if (!t || t.from === t.to) continue;
+    counts.set(t.mechanism, (counts.get(t.mechanism) ?? 0) + 1);
+    numbers.set(t.id, counts.get(t.mechanism)!);
+  }
   for (const t of visibleTransitions(tier, media)) {
     const cause = nodeById.get(t.cause);
     if (!cause) continue;
@@ -365,7 +411,9 @@ export function buildMapModel(tier: Tier, media: Media[], order: EventOrder, hei
       mechanism: t.mechanism,
       collapsed: false,
       hiddenSteps: 0,
+      number: numbers.get(t.id) ?? null,
       crosses: t.crossesAttractorField,
+      branch: eventById(t.cause)?.lane === 'sg_vn_ending',
       fromNode: t.cause,
       from: { x: cause.x, y: yOf(t.from) },
       to: { x: cause.x + EDGE_RUN, y: yOf(t.to) },
@@ -381,7 +429,9 @@ export function buildMapModel(tier: Tier, media: Media[], order: EventOrder, hei
       mechanism: c.mechanism,
       collapsed: true,
       hiddenSteps: c.hiddenSteps,
+      number: null,
       crosses: false,
+      branch: false,
       fromNode: firstCause ?? null,
       from: { x: cause.x, y: yOf(c.from) },
       to: { x: cause.x + EDGE_RUN, y: yOf(c.to) },
@@ -391,10 +441,12 @@ export function buildMapModel(tier: Tier, media: Media[], order: EventOrder, hei
   const tracks: MapTrack[] = [];
   for (const row of rows) {
     if (!row.lineId) continue;
+    // A side ending leaves from a thread without stretching the red strand out to meet it.
+    const side = new Set(edges.filter((e) => e.branch && e.from.y === row.y).map((e) => e.fromNode));
     const xs = [
-      ...nodes.filter((n) => n.lineId === row.lineId).map((n) => n.x),
+      ...nodes.filter((n) => n.lineId === row.lineId && !side.has(n.id)).map((n) => n.x),
       ...edges.filter((e) => e.to.y === row.y).map((e) => e.to.x),
-      ...edges.filter((e) => e.from.y === row.y).map((e) => e.from.x),
+      ...edges.filter((e) => e.from.y === row.y && !e.branch).map((e) => e.from.x),
     ];
     if (xs.length === 0) continue;
     const line = worldLineById(row.lineId);
@@ -423,7 +475,20 @@ export function buildMapModel(tier: Tier, media: Media[], order: EventOrder, hei
   }
 
   const floatRow = rows.find((r) => r.lineId && floaters.some((f) => f.id === r.lineId));
+  const storyWidth = rightEdge + 26 * Math.max(floaters.length, 1) + 30;
+  const ropes: MapRope[] = bands.flatMap((b) => {
+    if (b.kind !== 'alpha' && b.kind !== 'beta') return [];
+    const ys = rows.filter((r) => r.kind === b.kind && r.lineId).map((r) => r.y);
+    if (ys.length === 0 || !b.label) return [];
+    return [{ kind: b.kind, label: b.label, ys, x0: storyWidth, knotX: storyWidth + KNOT_AT, knotY: (ys[0] + ys[ys.length - 1]) / 2 }];
+  });
+  const inRope = new Set(ropes.flatMap((r) => r.ys));
+  const threads: MapThread[] = rows.flatMap((r) => (r.lineId ? [{ lineId: r.lineId, y: r.y, until: inRope.has(r.y) ? storyWidth : null }] : []));
+  const latestId = [...lived].reverse().find((e) => nodeById.has(e.id) && e.lane !== 'sg_vn_ending')?.id ?? null;
   return {
+    threads,
+    ropes,
+    latestId,
     rows,
     bands,
     nodes,
@@ -439,7 +504,7 @@ export function buildMapModel(tier: Tier, media: Media[], order: EventOrder, hei
       floaters.length > 1 && floatRow
         ? { x1: rightEdge, x2: rightEdge + 26 * (floaters.length - 1), y: bands.find((b) => b.kind === 'sg0')!.y1 - 3 }
         : null,
-    width: rightEdge + 26 * Math.max(floaters.length, 1) + 30,
+    width: storyWidth + (ropes.length > 0 ? ROPE_TAIL : 0),
     height: mapHeight,
     gutter: tierRank(tier) === 0 ? GUTTER_PREMISE : GUTTER,
   };
