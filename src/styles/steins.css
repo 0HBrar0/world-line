@@ -69,8 +69,9 @@ a { color: var(--nixie); }
 .gear-spin { transform-box: fill-box; transform-origin: center; }
 html[data-motion='full'] .gear-spin { animation: gear-turn 70s linear infinite; }
 html[data-motion='full'] .gear-spin.is-slow { animation-duration: 160s; }
-/* The chart is dragged and zoomed, so the gears behind it stay still to keep panning smooth. */
-html[data-motion='full']:has(.map-svg) .backdrop .gear-spin { animation: none; }
+/* The chart is dragged and zoomed. A full-page blend layer and a gear layer under it make every
+   frame repaint the whole page on machines without a GPU, so the chart page goes without both. */
+html:has(.map-svg) body::before, html:has(.map-svg) .backdrop { display: none; }
 html[data-motion='full'] .gear-spin.is-reverse { animation-direction: reverse; }
 @keyframes gear-turn { to { transform: rotate(360deg); } }
 .backdrop { position: fixed; inset: 0; z-index: -1; width: 100%; height: 100%; pointer-events: none; fill: var(--ink-0); opacity: 0.055; }
