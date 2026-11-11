@@ -1,20 +1,23 @@
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import { motion, type TargetAndTransition } from 'framer-motion';
 import { useReduceMotion } from '../../app/settings';
 import { Nixie } from '../../components/Nixie';
 
-// Original props for the mechanic stage. Nothing here depicts a character or official design.
+// Props for the mechanic stage, drawn like diagrams in a lab notebook: ink lines on graph paper.
+// Nothing here depicts a character or official design.
+// One rule runs through every frame: ink is how things were, red is what travels or changes.
 // Every frame plays once and then holds its last state, so it can be read like a diagram.
 
-export const INK = '#c4cbe0';
-export const DIM = '#5d6688';
-export const NIXIE = '#ff9a3c';
-export const GEL = '#7fd1ae';
-export const PINK = '#e58ac0';
-export const GOLD = '#f0d264';
-export const SKY = '#6cc4f5';
-export const VIOLET = '#b79cff';
-export const DANGER = '#ff6b7e';
+export const INK = '#141312';
+export const DIM = '#8d867a';
+export const RED = '#b3261a';
+export const RED_SOFT = '#d98b83';
+export const PAPER = '#f4f2ec';
+export const SHADE = '#dedad0';
+/** A quiet second tone, for the few frames that must tell two unchanged things apart. */
+export const SLATE = '#3d5a73';
+export const GEL = '#3f8a55';
+export const OCHRE = '#b08a1e';
 
 export const STAGE = { width: 640, height: 360 };
 const EASE = [0.2, 0, 0, 1] as const;
@@ -40,18 +43,9 @@ export function Beat({ at = 0, dur = 0.5, from = { opacity: 0, y: 8 }, children 
   const still = useStill();
   if (still) return <g>{children}</g>;
   return (
-    <motion.g initial={from} animate={{ opacity: 1, x: 0, y: 0, scale: 1 }} transition={{ delay: at, duration: dur, ease: EASE }}>
+    <motion.g initial={from} animate={{ opacity: 1, x: 0, y: 0, scale: 1, scaleX: 1 }} transition={{ delay: at, duration: dur, ease: EASE }}>
       {children}
     </motion.g>
-  );
-}
-
-/** Children drawn at their destination, arriving from dx, dy away. */
-export function Fly({ at = 0, dur = 1.1, dx = 0, dy = 0, children }: { at?: number; dur?: number; dx?: number; dy?: number; children: ReactNode }) {
-  return (
-    <Beat at={at} dur={dur} from={{ opacity: 0.2, x: dx, y: dy }}>
-      {children}
-    </Beat>
   );
 }
 
@@ -66,15 +60,49 @@ export function Fade({ at = 0, to = 0, children }: { at?: number; to?: number; c
   );
 }
 
-export function Draw({ d, color = NIXIE, width = 3, at = 0, dur = 0.9 }: { d: string; color?: string; width?: number; at?: number; dur?: number }) {
+/**
+ * Carries its children along a route of points, so a thing is seen to go somewhere instead of just
+ * appearing there. The children are drawn around 0,0. With `vanish` the thing is gone at the end.
+ */
+export function Move({ route, at = 0, dur = 1.2, vanish = false, shrink = 1, children }: { route: Array<[number, number]>; at?: number; dur?: number; vanish?: boolean; shrink?: number; children: ReactNode }) {
+  const still = useStill();
+  const [endX, endY] = route[route.length - 1];
+  if (still) return vanish ? null : <g transform={`translate(${endX} ${endY}) scale(${shrink})`}>{children}</g>;
+  const last = route.length - 1;
+  return (
+    <motion.g
+      initial={{ x: route[0][0], y: route[0][1], opacity: 0, scale: 1 }}
+      animate={{
+        x: route.map((p) => p[0]),
+        y: route.map((p) => p[1]),
+        opacity: route.map((_, i) => (vanish && i === last ? 0 : 1)),
+        scale: route.map((_, i) => (i === last ? shrink : 1)),
+      }}
+      transition={{ delay: at, duration: dur, ease: 'easeInOut' }}
+    >
+      {children}
+    </motion.g>
+  );
+}
+
+export function Draw({ d, color = INK, width = 3, at = 0, dur = 0.9, dash }: { d: string; color?: string; width?: number; at?: number; dur?: number; dash?: string }) {
   const still = useStill();
   const shape = { d, fill: 'none', stroke: color, strokeWidth: width, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-  if (still) return <path {...shape} />;
+  if (still) return <path {...shape} strokeDasharray={dash} />;
+  // A dashed line cannot also be drawn on by its length, so it fades in instead.
+  if (dash) return <motion.path {...shape} strokeDasharray={dash} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: at, duration: 0.4 }} />;
   return <motion.path {...shape} initial={{ pathLength: 0, opacity: 0 }} animate={{ pathLength: 1, opacity: 1 }} transition={{ delay: at, duration: dur, ease: 'easeInOut' }} />;
 }
 
+/** A line with an arrowhead at its far end. */
+export function Arrow({ from, to, color = INK, width = 3, at = 0, dur = 0.7 }: { from: [number, number]; to: [number, number]; color?: string; width?: number; at?: number; dur?: number }) {
+  const angle = Math.atan2(to[1] - from[1], to[0] - from[0]);
+  const wing = (turn: number) => `${(to[0] - 13 * Math.cos(angle + turn)).toFixed(1)} ${(to[1] - 13 * Math.sin(angle + turn)).toFixed(1)}`;
+  return <Draw d={`M ${from[0]} ${from[1]} L ${to[0]} ${to[1]} M ${wing(0.5)} L ${to[0]} ${to[1]} L ${wing(-0.5)}`} color={color} width={width} at={at} dur={dur} />;
+}
+
 /** A dashed line whose dashes keep running, for a current that stays on. */
-export function Flow({ d, color = NIXIE, width = 3 }: { d: string; color?: string; width?: number }) {
+export function Flow({ d, color = RED, width = 3 }: { d: string; color?: string; width?: number }) {
   const still = useStill();
   const shape = { d, fill: 'none', stroke: color, strokeWidth: width, strokeDasharray: '7 7', strokeLinecap: 'round' as const };
   if (still) return <path {...shape} />;
@@ -94,40 +122,46 @@ export function Spin({ x, y, dur = 5, children }: { x: number; y: number; dur?: 
   );
 }
 
+/** Something that comes and goes, like a half-remembered dream. It holds steady when motion is off. */
+export function Flicker({ children, at = 0 }: { children: ReactNode; at?: number }) {
+  const still = useStill();
+  if (still) return <g opacity="0.6">{children}</g>;
+  return (
+    <motion.g initial={{ opacity: 0 }} animate={{ opacity: [0, 0.75, 0.3, 0.8, 0.45] }} transition={{ delay: at, duration: 2.6, repeat: Infinity, repeatType: 'mirror' }}>
+      {children}
+    </motion.g>
+  );
+}
+
 export function StageDefs() {
   return (
     <defs>
-      <linearGradient id="fill-body" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0" stopColor="#343b5e" />
-        <stop offset="1" stopColor="#1a1e36" />
-      </linearGradient>
-      <linearGradient id="fill-glass" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stopColor="#10142a" />
-        <stop offset="1" stopColor="#1e2546" />
-      </linearGradient>
+      <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+        <line x1="0" y1="0" x2="0" y2="6" stroke={INK} strokeWidth="1.4" strokeOpacity="0.5" />
+      </pattern>
       <radialGradient id="fill-warm">
-        <stop offset="0" stopColor="#ff9a3c" stopOpacity="0.5" />
-        <stop offset="1" stopColor="#ff9a3c" stopOpacity="0" />
+        <stop offset="0" stopColor={RED} stopOpacity="0.55" />
+        <stop offset="1" stopColor={RED} stopOpacity="0" />
       </radialGradient>
     </defs>
   );
 }
 
-export function Label({ x, y, children, anchor = 'middle', color = INK, size = 19 }: { x: number; y: number; children: ReactNode; anchor?: 'start' | 'middle' | 'end'; color?: string; size?: number }) {
+export function Label({ x, y, children, anchor = 'middle', color = INK, size = 18 }: { x: number; y: number; children: ReactNode; anchor?: 'start' | 'middle' | 'end'; color?: string; size?: number }) {
   return (
-    <text x={x} y={y} textAnchor={anchor} fill={color} fontSize={size} fontWeight="500" fontFamily="var(--font-body)">
+    <text x={x} y={y} textAnchor={anchor} fill={color} fontSize={size} fontWeight="400" fontFamily="var(--font-body)">
       {children}
     </text>
   );
 }
 
-/** A pill that names part of the picture. */
+/** A slip of paper that names part of the picture. */
 export function Tag({ x, y, color = INK, children }: { x: number; y: number; color?: string; children: string }) {
-  const width = children.length * 10 + 26;
+  const width = children.length * 9.7 + 22;
   return (
-    <g transform={`translate(${x - width / 2} ${y - 16})`}>
-      <rect width={width} height="32" rx="16" fill={color} fillOpacity="0.14" stroke={color} strokeOpacity="0.5" />
-      <text x={width / 2} y="22" textAnchor="middle" fill={color} fontSize="18" fontWeight="500" fontFamily="var(--font-body)">
+    <g transform={`translate(${x - width / 2} ${y - 15})`}>
+      <rect width={width} height="30" fill={PAPER} stroke={color} strokeWidth="1.5" />
+      <text x={width / 2} y="21" textAnchor="middle" fill={color} fontSize="16.5" fontFamily="var(--font-body)">
         {children}
       </text>
     </g>
@@ -137,56 +171,65 @@ export function Tag({ x, y, color = INK, children }: { x: number; y: number; col
 export function Meter({ x = 320, y, value, size = 'md' }: { x?: number; y: number; value: string | null; size?: 'sm' | 'md' | 'lg' }) {
   const width = 400;
   return (
-    <foreignObject x={x - width / 2} y={y} width={width} height={size === 'lg' ? 72 : 44}>
+    <foreignObject x={x - width / 2} y={y} width={width} height={size === 'lg' ? 84 : 52}>
       <Nixie value={value} size={size} label="" />
     </foreignObject>
   );
 }
 
-/** A glowing line: the app's picture of a stretch of history. */
-export function Thread({ d, color = INK, width = 3 }: { d: string; color?: string; width?: number }) {
-  return (
-    <>
-      <path d={d} fill="none" stroke={color} strokeWidth={width * 3.4} strokeOpacity="0.14" strokeLinecap="round" />
-      <path d={d} fill="none" stroke={color} strokeWidth={width} strokeLinecap="round" />
-    </>
-  );
+/** A meter that moves through several readings, so the change itself is seen. Holds the last one when still. */
+export function MeterSeq({ values, at = 0.9, every = 1.3, ...place }: { values: Array<string | null>; at?: number; every?: number; x?: number; y: number; size?: 'sm' | 'md' | 'lg' }) {
+  const still = useStill();
+  const [shown, setShown] = useState(still ? values.length - 1 : 0);
+  useEffect(() => {
+    if (still) return;
+    const timers = values.slice(1).map((_, i) => window.setTimeout(() => setShown(i + 1), (at + i * every) * 1000));
+    return () => timers.forEach(window.clearTimeout);
+  }, [still, values, at, every]);
+  return <Meter {...place} value={values[Math.min(shown, values.length - 1)]} />;
+}
+
+/** A plain line: one stretch of history. */
+export function Thread({ d, color = INK, width = 3, opacity = 1 }: { d: string; color?: string; width?: number; opacity?: number }) {
+  return <path d={d} fill="none" stroke={color} strokeWidth={width} strokeLinecap="round" strokeOpacity={opacity} />;
 }
 
 /** Time running left to right, with the present at the right-hand end. */
 export function TimeAxis({ y, ticks = 0, from = 60, to = 580 }: { y: number; ticks?: number; from?: number; to?: number }) {
   return (
     <>
-      <Thread d={`M ${from} ${y} H ${to}`} color={DIM} />
+      <Thread d={`M ${from} ${y} H ${to}`} color={INK} width={2.5} />
       {Array.from({ length: ticks }, (_, i) => {
         const x = to - ((to - from) * i) / Math.max(ticks - 1, 1);
-        return <line key={i} x1={x} x2={x} y1={y - 8} y2={y + 8} stroke={DIM} strokeWidth="2" />;
+        return <line key={i} x1={x} x2={x} y1={y - 9} y2={y + 9} stroke={INK} strokeWidth="2" />;
       })}
-      <Label x={from} y={y + 34} color={INK}>
+      <Label x={from} y={y + 36} color={DIM}>
         past
       </Label>
-      <circle cx={to} cy={y} r="8" fill={NIXIE} />
-      <Label x={to} y={y + 34} color={NIXIE}>
+      <circle cx={to} cy={y} r="8" fill={INK} />
+      <Label x={to} y={y + 36}>
         now
       </Label>
     </>
   );
 }
 
+const line = { stroke: INK, strokeWidth: 2.5, strokeLinejoin: 'round' as const };
+
 export function Microwave({ x, y, timer, on }: { x: number; y: number; timer?: ReactNode; on?: boolean }) {
   return (
     <g transform={`translate(${x} ${y})`}>
-      <rect width="190" height="118" rx="14" fill="url(#fill-body)" stroke={INK} strokeOpacity="0.4" />
-      <rect x="12" y="13" width="118" height="92" rx="8" fill={on ? '#3b2410' : 'url(#fill-glass)'} stroke={on ? NIXIE : INK} strokeOpacity={on ? 1 : 0.35} />
-      {on && <circle cx="71" cy="59" r="40" fill="url(#fill-warm)" />}
-      <rect x="140" y="15" width="40" height="22" rx="5" fill="#0a0c18" />
+      <rect width="190" height="118" rx="6" fill={PAPER} {...line} />
+      <rect x="12" y="13" width="118" height="92" rx="3" fill={on ? PAPER : 'url(#hatch)'} stroke={on ? RED : INK} strokeWidth="2" />
+      {on && <circle cx="71" cy="59" r="42" fill="url(#fill-warm)" />}
+      <rect x="140" y="15" width="40" height="22" rx="2" fill={INK} />
       {timer && (
-        <text x="160" y="31" textAnchor="middle" fill={NIXIE} fontSize="13" fontFamily="var(--font-mono)">
+        <text x="160" y="31" textAnchor="middle" fill="#ff9a3c" fontSize="13" fontFamily="var(--font-mono)">
           {timer}
         </text>
       )}
       {[56, 78, 98].map((cy) => (
-        <circle key={cy} cx="160" cy={cy} r="7" fill="#0a0c18" stroke={INK} strokeOpacity="0.4" />
+        <circle key={cy} cx="160" cy={cy} r="7" fill={PAPER} stroke={INK} strokeWidth="2" />
       ))}
     </g>
   );
@@ -195,10 +238,9 @@ export function Microwave({ x, y, timer, on }: { x: number; y: number; timer?: R
 export function Phone({ x, y, lit, scale = 1 }: { x: number; y: number; lit?: boolean; scale?: number }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${scale})`}>
-      <rect width="62" height="112" rx="12" fill="url(#fill-body)" stroke={lit ? NIXIE : INK} strokeOpacity={lit ? 1 : 0.4} strokeWidth="2" />
-      <rect x="7" y="11" width="48" height="76" rx="4" fill={lit ? '#3b2410' : 'url(#fill-glass)'} />
-      <circle cx="31" cy="99" r="6" fill="#0a0c18" />
-      {lit && <circle cx="31" cy="49" r="14" fill={NIXIE} opacity="0.75" />}
+      <rect width="62" height="112" rx="8" fill={PAPER} stroke={lit ? RED : INK} strokeWidth="2.5" />
+      <rect x="7" y="11" width="48" height="56" rx="2" fill={lit ? RED : SHADE} fillOpacity={lit ? 0.18 : 1} stroke={lit ? RED : INK} strokeWidth="1.5" />
+      {[0, 1, 2].map((r) => [0, 1, 2].map((c) => <rect key={`${r}${c}`} x={10 + c * 15} y={73 + r * 11} width="11" height="7" rx="1.5" fill={INK} fillOpacity="0.55" />))}
     </g>
   );
 }
@@ -206,23 +248,22 @@ export function Phone({ x, y, lit, scale = 1 }: { x: number; y: number; lit?: bo
 export function Tv({ x, y, on }: { x: number; y: number; on: boolean }) {
   return (
     <g transform={`translate(${x} ${y})`}>
-      <rect width="170" height="112" rx="16" fill="url(#fill-body)" stroke={INK} strokeOpacity="0.4" />
-      <rect x="13" y="13" width="144" height="86" rx="20" fill={on ? '#3d6e96' : 'url(#fill-glass)'} />
-      {on && <rect x="13" y="13" width="144" height="86" rx="20" fill={SKY} opacity="0.2" />}
+      <rect width="170" height="112" rx="10" fill={PAPER} {...line} />
+      <rect x="13" y="13" width="144" height="86" rx="18" fill={on ? SLATE : 'url(#hatch)'} fillOpacity={on ? 0.35 : 1} stroke={INK} strokeWidth="2" />
+      {on && [30, 44, 58, 72, 86].map((ly) => <line key={ly} x1="24" x2="146" y1={ly} y2={ly} stroke={SLATE} strokeWidth="2" strokeOpacity="0.6" />)}
     </g>
   );
 }
 
 /** The ring-shaped vortex, seen a little from above. */
-export function Hole({ x, y, r = 64, color = NIXIE }: { x: number; y: number; r?: number; color?: string }) {
+export function Hole({ x, y, r = 64, color = INK }: { x: number; y: number; r?: number; color?: string }) {
   return (
     <>
-      <ellipse cx={x} cy={y} rx={r * 1.25} ry={r * 0.82} fill={color} opacity="0.08" />
       <Spin x={x} y={y}>
-        <ellipse rx={r} ry={r} fill="none" stroke={color} strokeWidth="6" strokeDasharray="30 12" opacity="0.9" />
-        <ellipse rx={r * 0.72} ry={r * 0.72} fill="none" stroke={color} strokeWidth="2.5" strokeDasharray="12 10" opacity="0.6" />
+        <circle r={r} fill="none" stroke={color} strokeWidth="5" strokeDasharray="30 12" />
+        <circle r={r * 0.72} fill="none" stroke={color} strokeWidth="2" strokeDasharray="12 10" opacity="0.6" />
       </Spin>
-      <circle cx={x} cy={y} r={r * 0.42} fill="#04050c" stroke={color} strokeWidth="2" />
+      <circle cx={x} cy={y} r={r * 0.42} fill={INK} />
     </>
   );
 }
@@ -236,28 +277,36 @@ export function Person({ x, y, color = INK, scale = 1, opacity = 1 }: { x: numbe
   );
 }
 
-/** A memory strip: coloured frames standing for what a person remembers. */
-export const MEMORY_OLD = [NIXIE, GOLD, NIXIE, NIXIE, GOLD];
-export const MEMORY_NEW = [SKY, GEL, SKY, VIOLET, SKY];
-
-export function Memory({ x, y, colors, width = 100 }: { x: number; y: number; colors: string[]; width?: number }) {
-  const cell = width / colors.length;
+/** A memory strip, like a few frames of film: ink for the old history, red for the new. */
+export function Memory({ x, y, tone, width = 100 }: { x: number; y: number; tone: 'old' | 'new'; width?: number }) {
+  const cell = width / 5;
+  const shades = tone === 'old' ? [INK, DIM, INK, INK, DIM] : [RED, RED_SOFT, RED, RED_SOFT, RED];
   return (
     <g transform={`translate(${x - width / 2} ${y})`}>
-      <rect x="-5" y="-5" width={width + 8} height="30" rx="7" fill="#0a0c18" />
-      {colors.map((c, i) => (
-        <rect key={i} x={i * cell} width={cell - 3} height="20" rx="3" fill={c} />
+      <rect x="-5" y="-5" width={width + 7} height="30" fill={PAPER} stroke={INK} strokeWidth="1.5" />
+      {shades.map((c, i) => (
+        <rect key={i} x={i * cell} width={cell - 3} height="20" fill={c} />
       ))}
     </g>
   );
 }
 
-/** A short text message. */
-export function Note({ x, y, color = NIXIE, scale = 1 }: { x: number; y: number; color?: string; scale?: number }) {
+/** A short text message. Drawn around its own middle so it can be carried along a route. */
+export function Note({ x = 0, y = 0, color = RED, scale = 1 }: { x?: number; y?: number; color?: string; scale?: number }) {
   return (
     <g transform={`translate(${x} ${y}) scale(${scale})`}>
-      <path d="M-27 -19 H27 a7 7 0 0 1 7 7 V10 a7 7 0 0 1 -7 7 H-8 L-19 28 V17 H-27 a7 7 0 0 1 -7 -7 V-12 a7 7 0 0 1 7 -7 Z" fill={color} />
-      <path d="M-22 -6 H22 M-22 5 H8" stroke="#1c1006" strokeWidth="3.5" strokeLinecap="round" />
+      <rect x="-30" y="-20" width="60" height="40" fill={PAPER} stroke={color} strokeWidth="2.5" />
+      <path d="M-30 -20 L0 4 L30 -20" fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" />
+    </g>
+  );
+}
+
+/** A block of data. */
+export function Packet({ x = 0, y = 0, size, color = RED, plain = false }: { x?: number; y?: number; size: number; color?: string; plain?: boolean }) {
+  return (
+    <g transform={`translate(${x - size / 2} ${y - size / 2})`}>
+      <rect width={size} height={size} fill={color} fillOpacity="0.16" stroke={color} strokeWidth="2.5" />
+      {size > 40 && !plain && <path d={`M${size * 0.25} ${size * 0.36} H${size * 0.75} M${size * 0.25} ${size * 0.64} H${size * 0.75}`} stroke={color} strokeWidth="2.5" strokeLinecap="round" />}
     </g>
   );
 }
@@ -265,31 +314,58 @@ export function Note({ x, y, color = NIXIE, scale = 1 }: { x: number; y: number;
 export function Cross({ x, y, size = 15 }: { x: number; y: number; size?: number }) {
   return (
     <g transform={`translate(${x} ${y})`}>
-      <circle r={size + 7} fill={DANGER} fillOpacity="0.16" />
-      <path d={`M${-size / 2} ${-size / 2} L${size / 2} ${size / 2} M${size / 2} ${-size / 2} L${-size / 2} ${size / 2}`} stroke={DANGER} strokeWidth="4" strokeLinecap="round" />
+      <circle r={size + 6} fill={PAPER} stroke={RED} strokeWidth="2" />
+      <path d={`M${-size / 2} ${-size / 2} L${size / 2} ${size / 2} M${size / 2} ${-size / 2} L${-size / 2} ${size / 2}`} stroke={RED} strokeWidth="4" strokeLinecap="round" />
     </g>
   );
 }
 
-/** A tied end: every strand that reaches it shares one outcome. */
-export function Knot({ x, y, color, r = 26 }: { x: number; y: number; color: string; r?: number }) {
-  return (
-    <g transform={`translate(${x} ${y})`}>
-      <circle r={r + 12} fill={color} opacity="0.12" />
-      <circle r={r} fill="#0a0c18" stroke={color} strokeWidth="4" />
-      <path d="M-12 -12 C 12 -2, -12 2, 12 12 M 12 -12 C -12 -2, 12 2, -12 12" fill="none" stroke={color} strokeWidth="3.5" strokeLinecap="round" />
-    </g>
-  );
+/** A tied end: every thread that reaches it shares one outcome. The same mark the map uses. */
+export function Knot({ x, y, r = 12 }: { x: number; y: number; r?: number }) {
+  return <circle cx={x} cy={y} r={r} fill={INK} />;
 }
 
-/** Strands drawn in from the left, gathering into one bundle. */
-export function Bundle({ y, color, end = 490, count = 9, spread = 15, at = 0 }: { y: number; color: string; end?: number; count?: number; spread?: number; at?: number }) {
+const smooth = (a: number, b: number, v: number) => {
+  const k = Math.min(1, Math.max(0, (v - a) / (b - a)));
+  return k * k * (3 - 2 * k);
+};
+
+/** Where thread `i` of a rope runs while it is still flat. */
+export const ropeThread = (y: number, i: number, count: number, spread: number) => y + (i - (count - 1) / 2) * spread;
+
+/**
+ * A rope: threads that run flat, then twist together and pinch shut at `knotX`. With no knot they stay flat.
+ * This is the same picture the world line map draws.
+ */
+export function Rope({ y, count = 6, spread = 16, from = 34, flatTo = 330, knotX, at = 0, opacity = 0.55 }: { y: number; count?: number; spread?: number; from?: number; flatTo?: number; knotX?: number; at?: number; opacity?: number }) {
   return (
-    <>
+    <g opacity={opacity}>
       {Array.from({ length: count }, (_, i) => {
-        const off = i - (count - 1) / 2;
-        return <Draw key={i} d={`M 34 ${y + off * spread} C 190 ${y + off * spread}, 280 ${y + off * 2}, ${end} ${y + off * 0.8}`} color={color} width={2} at={at + i * 0.05} dur={1.1} />;
+        const flat = ropeThread(y, i, count, spread);
+        let d = `M ${from} ${flat} H ${flatTo}`;
+        if (knotX !== undefined) {
+          const amp = Math.max(7, ((count - 1) * spread) / 4);
+          for (let s = 1; s <= 30; s += 1) {
+            const u = s / 30;
+            const blend = smooth(0, 0.35, u);
+            const twist = y + amp * (1 - smooth(0.7, 1, u)) * Math.sin(u * Math.PI * 3 + (i * 2 * Math.PI) / count);
+            d += ` L ${(flatTo + (knotX - flatTo) * u).toFixed(1)} ${(flat * (1 - blend) + twist * blend).toFixed(1)}`;
+          }
+        }
+        return <Draw key={i} d={d} width={2} at={at + i * 0.06} dur={1.1} />;
       })}
-    </>
+    </g>
+  );
+}
+
+/** Drains the colour from its children and blurs them, once. */
+export function Wash({ at = 0.6, children }: { at?: number; children: ReactNode }) {
+  const still = useStill();
+  const end = 'grayscale(1) blur(1.6px)';
+  if (still) return <g style={{ filter: end }}>{children}</g>;
+  return (
+    <motion.g initial={{ filter: 'grayscale(0) blur(0px)' }} animate={{ filter: end }} transition={{ delay: at, duration: 1.2 }}>
+      {children}
+    </motion.g>
   );
 }

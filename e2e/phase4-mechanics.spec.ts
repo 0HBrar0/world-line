@@ -60,7 +60,8 @@ test('the Nixie settles on the canon value', async ({ page }) => {
   await page.goto('/#/mechanics/dmail');
   await page.getByRole('button', { name: 'Pause' }).click();
   await page.locator('.step-dot').nth(5).click();
-  await page.waitForTimeout(1300);
+  // The meter first shows the old reading, then rolls to the new one.
+  await page.waitForTimeout(3200);
   const digits = await page.locator('.stage .tube-digit').allTextContents();
   expect(digits.join('')).toBe(canon.worldLines.find((w: Any) => w.id === 'wl-alpha-0571024').divergence);
 });

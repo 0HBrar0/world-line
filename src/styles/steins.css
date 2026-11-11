@@ -181,7 +181,7 @@ button.meter-case { cursor: pointer; }
 .hero-kit { display: grid; justify-items: center; gap: 28px; }
 .phone { position: relative; width: 248px; padding: 16px 16px 20px; border-radius: 24px 24px 16px 16px; background: linear-gradient(115deg, #5d5f66, #2a2b30 58%, #1a1b1f); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 8px 10px 0 rgba(20, 19, 18, 0.2); rotate: 3deg; }
 .phone::before { content: ''; position: absolute; left: 50%; top: 6px; width: 32px; height: 4px; margin-left: -16px; border-radius: 2px; background: #0a0a0c; }
-.phone-screen, .dmail-screen, .stage, .mechanic-art, .diagram, .teaser {
+.phone-screen, .dmail-screen, .diagram, .teaser {
   --ink-0: #dcf0e0; --ink-1: #98b8a0; --ink-2: #86a48e; --bg-0: var(--screen); --bg-1: #101a13; --bg-2: #17271b; --grid: rgba(185, 232, 196, 0.14); --nixie: #ff9a3c; --nixie-glow: rgba(255, 138, 31, 0.36); --on-accent: #1d1206;
   --conf-confirmed: #3ecf8e; --conf-interp: #8fb0ff; --conf-unclear: #ffb020; --edge-dmail: #e69f00; --edge-cancel: #56b4e9; --edge-machine: #2fbf8f; --edge-erasure: #e0823a; --edge-other: #bbbbbb; --edge-leap: #cc79a7;
   color: var(--ink-0);
@@ -256,7 +256,7 @@ a.tile:hover { translate: none; transform: none; box-shadow: inset 0 0 0 1px var
 .uplink-button { background: var(--housing); }
 
 /* Old screens: anything drawn with light stays dark */
-.stage, .mechanic-art, .diagram, .teaser { border-radius: 10px; background: var(--screen); box-shadow: 0 0 0 4px #2f2b26; }
+.diagram, .teaser { border-radius: 10px; background: var(--screen); box-shadow: 0 0 0 4px #2f2b26; }
 .mechanic-art { width: calc(100% - 8px); margin: 4px; }
 .tile .mechanic-art + h2 { margin-top: 16px; }
 .mechanic-tile { padding: 16px 20px 20px; }
@@ -581,3 +581,7 @@ html[data-motion='full'] .dmail-phone { animation: phone-in 380ms cubic-bezier(0
   .dmail-file.is-phone > .dmail-phone-col { order: -1; padding: 44px 0 0; }
   .dmail-phone { width: min(272px, 86vw); rotate: none; }
 }
+
+/* ---------- Mechanic stage: a page of graph paper with ink diagrams, like the map ---------- */
+.stage, .mechanic-art { border-radius: 2px; background-color: var(--bg-1); background-image: linear-gradient(rgba(20, 19, 18, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(20, 19, 18, 0.05) 1px, transparent 1px); background-size: 24px 24px; box-shadow: inset 0 0 0 1px var(--ink-0); }
+.stage-locked { color: var(--ink-1); }
