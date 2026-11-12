@@ -35,8 +35,8 @@ test('rows open a bottom sheet on mobile', async ({ page }, info) => {
   test.skip(info.project.name !== 'mobile');
   await setTier(page, 'sg_ending');
   await page.goto('/#/map');
-  await expect(page.locator('.vrow').first()).toBeVisible();
-  await page.locator('.vrow-main').first().click();
+  await expect(page.locator('.rope-ladder [data-node]').first()).toBeVisible();
+  await page.locator('.rope-ladder [data-node]').first().click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.screenshot({ path: shot('phase-3', 'sheet', info.project.name) });
 });

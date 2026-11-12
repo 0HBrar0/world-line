@@ -16,7 +16,7 @@ import { ROPE_GLOSSARY } from './constants';
 import { buildMapModel, neighbourNode, type MapEdge, type MapModel, type MapRope } from './layout';
 import { MapCanvas } from './MapCanvas';
 import { MiniMap } from './MiniMap';
-import { MobileTimeline } from './MobileTimeline';
+import { RopeLadder } from './RopeLadder';
 import { MapList, SpinOffGutter } from './MapList';
 import { RopeKey } from './RopeKey';
 import { eventTarget, lineTarget, transitionTarget } from './targets';
@@ -429,8 +429,7 @@ export function MapPage() {
     return (
       <main id="main" className="page page-map">
         <h1 className="sr-only">World-line map</h1>
-        <MapIntro order={order} toggleOrder={toggleOrder} />
-        <MobileTimeline tier={tier} media={media} order={order} onOpen={(s) => setSelection(s)} />
+        <RopeLadder tier={tier} media={media} onOpen={(s) => setSelection(s)} />
         <SpinOffGutter tier={tier} media={media} onOpen={(id) => setSelection({ kind: 'line', id })} />
         {selection && <DetailPanel selection={selection} tier={tier} modal onClose={closePanel} />}
       </main>

@@ -22,7 +22,9 @@ const smooth = (a: number, b: number, x: number) => {
 };
 
 /** A rope's threads: flat across the story, then twisting together and pinching shut at the knot. */
-function ropePath(rope: MapRope, tight = false): string {
+/** With `swap`, across and down change places, for the map turned on its side on narrow screens. */
+export function ropePath(rope: MapRope, tight = false, swap = false): string {
+  const at = (x: number | string, y: number | string) => (swap ? `${y} ${x}` : `${x} ${y}`);
   const n = rope.ys.length;
   const half = (rope.ys[n - 1] - rope.ys[0]) / 2;
   const amp = Math.min(38, Math.max(8, half * 0.5)) * (tight ? 0.35 : 1);
@@ -30,12 +32,12 @@ function ropePath(rope: MapRope, tight = false): string {
   const STEPS = 36;
   return rope.ys
     .map((y, i) => {
-      let d = `M -2000 ${y} L ${rope.x0} ${y}`;
+      let d = `M ${at(-2000, y)} L ${at(rope.x0, y)}`;
       for (let s = 1; s <= STEPS; s += 1) {
         const u = s / STEPS;
         const blend = smooth(0, 0.3, u);
         const twist = rope.knotY + amp * (1 - smooth(0.72, 1, u)) * Math.sin(u * Math.PI * 3.2 + (i * 2 * Math.PI) / n);
-        d += ` L ${(rope.x0 + span * u).toFixed(1)} ${(y * (1 - blend) + twist * blend).toFixed(1)}`;
+        d += ` L ${at((rope.x0 + span * u).toFixed(1), (y * (1 - blend) + twist * blend).toFixed(1))}`;
       }
       return d;
     })

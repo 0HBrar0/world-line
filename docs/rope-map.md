@@ -1,6 +1,6 @@
 # The Rope: framework for the world line map
 
-Status: built for desktop in `src/features/map/` (see "What was built" at the end). Phones still get the older list of events. Reference sheets: [the parts](rope-map/sheet-a-parts.png), [a rope untwisted](rope-map/sheet-b-untwisted.png), [spoiler levels](rope-map/sheet-c-spoiler-levels.png) (all three on one page in `rope-map/sheets.html`). The sheets show the whole story and are for the owner, not the site.
+Status: built for desktop in `src/features/map/` (see "What was built" at the end). On phones the same map is turned to run down the page (`RopeLadder.tsx`). Reference sheets: [the parts](rope-map/sheet-a-parts.png), [a rope untwisted](rope-map/sheet-b-untwisted.png), [spoiler levels](rope-map/sheet-c-spoiler-levels.png) (all three on one page in `rope-map/sheets.html`). The sheets show the whole story and are for the owner, not the site.
 
 ## The idea in one sentence
 
@@ -93,4 +93,6 @@ The map is one picture instead of two levels, because switching between a twiste
 
 Code: `layout.ts` (threads, ropes, hop numbers, branches), `MapCanvas.tsx` (drawing), `HopMark.tsx`, `RopeKey.tsx`, `constants.ts` (which glossary entry states each rope's outcome). Tests: `tests/rope.test.ts` and "the rope map" in `e2e/v3.spec.ts`.
 
-Still open: several knots along a rope (needs data, gap 1), and a phone version.
+On a narrow screen the map is turned on its side: threads run down the page, the order lived runs top to bottom, the page scrolls normally, and each thread's number is printed where the red strand lands on it (`RopeLadder.tsx`, same layout model).
+
+Still open: several knots along a rope (needs data, gap 1).
